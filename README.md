@@ -82,9 +82,22 @@ src/main/java/com/chesstutor/
 ## 6. 개발 진행 현황 (Progress)
 
 * **Phase 1 완료 — 백엔드 엔진 코어 (`backend/`):** Spring Boot + Stockfish 프로세스 풀 기반의 `/api/v1/analysis` API. FEN 검증(프롬프트 인젝션 방어 포함), 체크메이트/스테일메이트 감지, 엔진 타임아웃 시 친절한 에러 메시지, 단위/통합 테스트 21개.
+* **Phase 2 완료 — 모바일 앱 (`mobile/`):** Expo(React Native) 기반 FEN 입력·체스판 렌더링·기보(수순) 뷰어. `analysisApi.ts`가 백엔드 `/api/v1/analysis`를 호출해 최선의 수와 평가값을 표시.
+* **Phase 3 완료 — RAG 지능형 해설 (`backend/`):** `/api/v1/analysis/commentary` API 추가.
+  * `RagService`가 Stockfish 평가 결과를 받아 `OpenAiClient`(임베딩+챗 완성)와 `VectorStoreClient`(Supabase pgvector RPC 검색)를 조합해 초보자용 3~4줄 한국어 해설을 생성.
+  * 체크메이트/스테일메이트는 LLM 호출 없이 고정 문구로 즉시 응답.
+  * 프롬프트 조립(`RagPromptBuilder`)과 검색/생성 오케스트레이션(`RagService`)을 분리해 단위 테스트로 검증(엔진 응답 파서와 동일한 패턴).
+  * LLM/벡터 검색 실패는 `CommentaryUnavailableException` → 503 friendly 메시지로 매핑, 엔진 타임아웃과 별개로 구분.
+  * Supabase 스키마·RPC 함수·시드 데이터는 `backend/src/main/resources/db/`에 위치(`supabase_setup.sql`, `opening_principles_seed.json`, 설정 방법은 해당 폴더의 `README.md` 참고). 시딩은 `CHESSKO_RAG_SEED_ON_STARTUP=true`일 때만 동작하는 opt-in 툴(`OpeningPrincipleSeeder`).
+  * 단위/통합 테스트 30개(RAG 관련 9개 추가).
 * **로컬 실행:**
   ```bash
   cd backend
-  STOCKFISH_PATH=/path/to/stockfish ./gradlew bootRun
+  STOCKFISH_PATH=/path/to/stockfish \
+  OPENAI_API_KEY=sk-... \
+  SUPABASE_URL=https://xxxxx.supabase.co \
+  SUPABASE_SERVICE_KEY=... \
+  ./gradlew bootRun
   ```
-* **다음 단계:** Phase 2(React Native FEN 입력·뷰어) → Phase 3(Supabase pgvector 기반 RAG 해설) → Phase 4(Vision 파이프라인) → Phase 5(Freemium/결제).
+  (`OPENAI_API_KEY`/`SUPABASE_*`를 비워두면 `/api/v1/analysis`는 정상 동작하고, `/api/v1/analysis/commentary`만 503으로 응답합니다.)
+* **다음 단계:** Phase 4(Vision 파이프라인 — OpenCV/YOLO 기반 체스판 스캐너) → Phase 5(Freemium/결제).

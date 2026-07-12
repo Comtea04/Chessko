@@ -11,3 +11,17 @@ chessko:
     move-time-ms: 800
     borrow-timeout-ms: 2000
     extra-timeout-ms: 1500
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+    chat-model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+    timeout-ms: 8000
+  vectorstore:
+    url: ${SUPABASE_URL:}
+    service-key: ${SUPABASE_SERVICE_KEY:}
+    match-function: ${SUPABASE_MATCH_FUNCTION:match_opening_principles}
+    match-count: 3
+    timeout-ms: 5000
+  rag:
+    seed-on-startup: ${CHESSKO_RAG_SEED_ON_STARTUP:false}
