@@ -37,7 +37,7 @@
 | 구분 | 기능명 | 상세 설명 | 필요 기술 |
 | --- | --- | --- | --- |
 | **Vision** | 체스판 스캐너 | 카메라로 체스판을 촬영하면 8x8 격자를 추출하고 기물을 분류하여 FEN 문자열로 변환합니다. | OpenCV, Image Classification |
-| **Engine** | 포지션 평가 | FEN 값을 기반으로 현재의 유리함(Centipawns)과 최선의 수(Best Moves) 1~3순위를 계산합니다. | Stockfish, UCI Protocol |
+| **Engine** | 포지션 평가 | FEN 값을 기반으로 현재의 유리함(Centipawns)과 최선의 수(Best Moves) 1~3순위를 계산합니다. 더 이상 둘 수가 없는 경우(체크메이트/스테일메이트)를 감지해 명확한 게임 종료 상태로 응답합니다. | Stockfish, UCI Protocol |
 | **RAG/LLM** | 지능형 해설 | 스톡피쉬의 수치와 Vector DB에 저장된 체스 오프닝 이론/원칙을 종합하여 초보자 눈높이에 맞는 3~4줄의 텍스트 해설을 생성합니다. | Vector DB, OpenAI API |
 | **User** | 기보(PGN) 관리 | 사용자가 입력한 수순을 배열이나 리스트 형태로 추적하며, 이전/다음 수로 이동할 수 있는 뷰어를 제공합니다. | chess.js (프론트엔드 라이브러리) |
 | **Monetize** | 구독 및 결제 | 인앱 결제 영수증을 백엔드에서 검증하고, 유저의 API 호출 권한(Token)을 제어합니다. | Google Play / App Store 결제 연동 |
@@ -76,3 +76,15 @@ src/main/java/com/chesstutor/
 * **스톡피쉬 프로세스 관리:** 서버에 요청이 몰릴 경우, 스톡피쉬 프로세스가 무한정 생성되어 메모리 누수나 서버 다운이 발생할 수 있습니다. 엔진 인스턴스를 '풀(Pool)' 형태로 관리하거나 스레드 개수를 철저히 통제해야 합니다.
 * **프롬프트 인젝션 및 보안:** 악의적인 사용자가 FEN 입력란에 이상한 텍스트를 넣어 LLM을 조작하거나 시스템 프롬프트를 탈취하지 못하도록, 입력값(정규식 검증)과 서버 내부의 API 키 관리를 철저히 해야 합니다.
 * **예외 처리 (Exception Handling):** 이미지 인식 실패, 스톡피쉬 계산 시간 초과, 외부 LLM API 서버 장애 등 다양한 변수가 존재하므로, 클라이언트에게 명확한 에러 메시지(예: "체스판을 다시 촬영해 주세요")를 던져주는 예외 처리 로직이 필수적입니다.
+
+---
+
+## 6. 개발 진행 현황 (Progress)
+
+* **Phase 1 완료 — 백엔드 엔진 코어 (`backend/`):** Spring Boot + Stockfish 프로세스 풀 기반의 `/api/v1/analysis` API. FEN 검증(프롬프트 인젝션 방어 포함), 체크메이트/스테일메이트 감지, 엔진 타임아웃 시 친절한 에러 메시지, 단위/통합 테스트 21개.
+* **로컬 실행:**
+  ```bash
+  cd backend
+  STOCKFISH_PATH=/path/to/stockfish ./gradlew bootRun
+  ```
+* **다음 단계:** Phase 2(React Native FEN 입력·뷰어) → Phase 3(Supabase pgvector 기반 RAG 해설) → Phase 4(Vision 파이프라인) → Phase 5(Freemium/결제).

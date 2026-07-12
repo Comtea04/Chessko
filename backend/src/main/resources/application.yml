@@ -1,0 +1,11 @@
+server:
+  port: 8080
+
+chessko:
+  engine:
+    binary-path: ${STOCKFISH_PATH:/usr/local/bin/stockfish}
+    pool-size: ${STOCKFISH_POOL_SIZE:4}
+    hash-mb: 64
+    move-time-ms: 800
+    borrow-timeout-ms: 2000
+    extra-timeout-ms: 1500
