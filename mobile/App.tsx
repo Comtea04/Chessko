@@ -9,6 +9,7 @@ import { PromotionPicker } from './src/components/PromotionPicker';
 import { FenInput } from './src/components/FenInput';
 import { MoveList } from './src/components/MoveList';
 import { AnalysisPanel } from './src/components/AnalysisPanel';
+import { VisionImportPanel } from './src/components/VisionImportPanel';
 import { analyzePosition, AnalysisApiError, type AnalysisResponse } from './src/api/analysisApi';
 
 export default function App() {
@@ -114,6 +115,8 @@ export default function App() {
           onPrevious={game.goToPrevious}
           onNext={game.goToNext}
         />
+
+        <VisionImportPanel onFenScanned={game.loadFen} />
 
         <FenInput currentFen={game.fen} onLoad={game.loadFen} />
 

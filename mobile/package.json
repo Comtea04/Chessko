@@ -6,6 +6,7 @@
     "@expo/metro-runtime": "~57.0.3",
     "chess.js": "^1.4.0",
     "expo": "~57.0.4",
+    "expo-image-picker": "~57.0.2",
     "expo-status-bar": "~57.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
