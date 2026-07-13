@@ -123,6 +123,41 @@ class AnalysisControllerTest {
     }
 
     @Test
+    void returnsAnEvaluationForEveryPositionOfAGame() throws Exception {
+        when(stockfishService.analyzeGame(any())).thenReturn(java.util.Arrays.asList(
+                AnalysisResult.inProgress(List.of(new MoveEvaluation(1, "e2e4", 34, null, List.of("e2e4")))),
+                null, // engine was busy for this one — the graph shows a gap, the request still succeeds
+                AnalysisResult.terminal(GameStatus.CHECKMATE)
+        ));
+
+        mockMvc.perform(post("/api/v1/analysis/game")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fens": [
+                                  "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                                  "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+                                  "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
+                                ]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.evaluations.length()").value(3))
+                .andExpect(jsonPath("$.evaluations[0].scoreCp").value(34))
+                .andExpect(jsonPath("$.evaluations[0].analyzed").value(true))
+                .andExpect(jsonPath("$.evaluations[1].analyzed").value(false))
+                .andExpect(jsonPath("$.evaluations[2].status").value("CHECKMATE"));
+    }
+
+    @Test
+    void rejectsAGameAnalysisWithAnInvalidFen() throws Exception {
+        mockMvc.perform(post("/api/v1/analysis/game")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fens": ["not a fen"]}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void surfacesCommentaryUnavailableAsServiceUnavailable() throws Exception {
         when(stockfishService.analyze(anyString(), anyInt())).thenReturn(AnalysisResult.inProgress(List.of(
                 new MoveEvaluation(1, "e2e4", 34, null, List.of("e2e4"))

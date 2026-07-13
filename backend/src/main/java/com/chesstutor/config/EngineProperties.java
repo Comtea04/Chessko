@@ -17,6 +17,13 @@ public class EngineProperties {
     /** How long each analysis is allowed to search, in milliseconds. */
     private long moveTimeMs = 800;
 
+    /**
+     * Search time per position when analysing a whole game. Far shorter than {@link #moveTimeMs}:
+     * a game review evaluates dozens of positions, and the graph only needs the shape of the
+     * advantage, not a best move worth playing.
+     */
+    private long gameMoveTimeMs = 200;
+
     /** How long a request waits for a free engine before failing. */
     private long borrowTimeoutMs = 2000;
 
@@ -53,6 +60,14 @@ public class EngineProperties {
 
     public void setMoveTimeMs(long moveTimeMs) {
         this.moveTimeMs = moveTimeMs;
+    }
+
+    public long getGameMoveTimeMs() {
+        return gameMoveTimeMs;
+    }
+
+    public void setGameMoveTimeMs(long gameMoveTimeMs) {
+        this.gameMoveTimeMs = gameMoveTimeMs;
     }
 
     public long getBorrowTimeoutMs() {

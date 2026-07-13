@@ -15,6 +15,7 @@ chessko:
     pool-size: ${STOCKFISH_POOL_SIZE:4}
     hash-mb: 64
     move-time-ms: 800
+    game-move-time-ms: ${STOCKFISH_GAME_MOVE_TIME_MS:200}
     borrow-timeout-ms: 2000
     extra-timeout-ms: 1500
   openai:

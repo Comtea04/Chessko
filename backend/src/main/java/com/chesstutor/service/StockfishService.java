@@ -7,6 +7,7 @@ import com.chesstutor.exception.EngineTimeoutException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
@@ -38,12 +39,19 @@ public class StockfishService {
     private final EngineProperties properties;
     private final BlockingQueue<StockfishEngine> pool;
     private final ExecutorService analysisExecutor;
+    /** Separate from analysisExecutor: fan-out tasks must never occupy the threads they wait on. */
+    private final ExecutorService gameExecutor;
 
     public StockfishService(EngineProperties properties) {
         this.properties = properties;
         this.pool = new LinkedBlockingQueue<>(properties.getPoolSize());
         this.analysisExecutor = Executors.newFixedThreadPool(properties.getPoolSize(), runnable -> {
             Thread thread = new Thread(runnable, "stockfish-analysis");
+            thread.setDaemon(true);
+            return thread;
+        });
+        this.gameExecutor = Executors.newFixedThreadPool(properties.getPoolSize(), runnable -> {
+            Thread thread = new Thread(runnable, "stockfish-game-analysis");
             thread.setDaemon(true);
             return thread;
         });
@@ -59,15 +67,20 @@ public class StockfishService {
 
     @PreDestroy
     void shutdownPool() {
+        gameExecutor.shutdownNow();
         analysisExecutor.shutdownNow();
         pool.forEach(StockfishEngine::close);
     }
 
     public AnalysisResult analyze(String fen, int multiPv) {
+        return analyze(fen, multiPv, properties.getMoveTimeMs());
+    }
+
+    public AnalysisResult analyze(String fen, int multiPv, long moveTimeMs) {
         StockfishEngine engine = borrowEngine();
         boolean healthy = false;
         try {
-            AnalysisResult result = runWithTimeout(engine, fen, multiPv);
+            AnalysisResult result = runWithTimeout(engine, fen, multiPv, moveTimeMs);
             healthy = true;
             return result;
         } finally {
@@ -75,10 +88,39 @@ public class StockfishService {
         }
     }
 
-    private AnalysisResult runWithTimeout(StockfishEngine engine, String fen, int multiPv) {
-        Callable<AnalysisResult> task = () -> runAnalysis(engine, fen, multiPv);
+    /**
+     * Evaluates every position of a game, fanning out across the pool.
+     *
+     * <p>The fan-out runs on its own executor sized to the pool: each task borrows exactly one
+     * engine, so at most {@code poolSize} analyses are in flight and no task waits on an engine
+     * held by another task in this same batch. A position that times out (the pool is contended by
+     * other requests) yields {@code null} rather than failing the whole review — the graph shows a
+     * gap instead of an error page.
+     */
+    public List<AnalysisResult> analyzeGame(List<String> fens) {
+        List<Future<AnalysisResult>> futures = fens.stream()
+                .map(fen -> gameExecutor.submit(() -> analyze(fen, 1, properties.getGameMoveTimeMs())))
+                .toList();
+
+        List<AnalysisResult> results = new ArrayList<>(futures.size());
+        for (Future<AnalysisResult> future : futures) {
+            try {
+                results.add(future.get());
+            } catch (ExecutionException e) {
+                log.warn("Skipping a position in game analysis: {}", e.getCause().getMessage());
+                results.add(null);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new EngineTimeoutException("대국 분석이 중단되었습니다.", e);
+            }
+        }
+        return results;
+    }
+
+    private AnalysisResult runWithTimeout(StockfishEngine engine, String fen, int multiPv, long moveTimeMs) {
+        Callable<AnalysisResult> task = () -> runAnalysis(engine, fen, multiPv, moveTimeMs);
         Future<AnalysisResult> future = analysisExecutor.submit(task);
-        long budgetMs = properties.getMoveTimeMs() + properties.getExtraTimeoutMs();
+        long budgetMs = moveTimeMs + properties.getExtraTimeoutMs();
         try {
             return future.get(budgetMs, TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
@@ -92,10 +134,10 @@ public class StockfishService {
         }
     }
 
-    private AnalysisResult runAnalysis(StockfishEngine engine, String fen, int multiPv) throws IOException {
+    private AnalysisResult runAnalysis(StockfishEngine engine, String fen, int multiPv, long moveTimeMs) throws IOException {
         engine.send("setoption name MultiPV value " + multiPv);
         engine.send("position fen " + fen);
-        engine.send("go movetime " + properties.getMoveTimeMs());
+        engine.send("go movetime " + moveTimeMs);
         List<String> lines = engine.collectUntilBestmove();
 
         GameStatus terminalStatus = StockfishOutputParser.detectTerminalStatus(lines);
