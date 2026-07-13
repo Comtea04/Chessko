@@ -10,7 +10,7 @@ export const PIECE_IMAGES: Partial<Record<'w' | 'b', Partial<Record<PieceSymbol,
     p: require('../../assets/pieces/wP.png'),
   },
   b: {
-    k: require('../../assets/pieces/bb.png'),
+    k: require('../../assets/pieces/bK.png'),
     q: require('../../assets/pieces/bQ.png'),
     r: require('../../assets/pieces/bR.png'),
     b: require('../../assets/pieces/bB.png'),

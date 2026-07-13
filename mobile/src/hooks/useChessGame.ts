@@ -58,6 +58,24 @@ export function useChessGame(initialFen: string = STARTING_FEN) {
 
   const resetToStart = useCallback(() => loadFen(STARTING_FEN), [loadFen]);
 
+  /** Preloads a fixed SAN sequence (e.g. an opening's main line) from `fen`, viewer starts at the root position. */
+  const loadMoves = useCallback((sanMoves: string[], fen: string = STARTING_FEN): boolean => {
+    const game = new Chess(fen);
+    for (const san of sanMoves) {
+      try {
+        game.move(san);
+      } catch {
+        setError('유효하지 않은 수순입니다.');
+        return false;
+      }
+    }
+    setRootFen(fen);
+    setMoves(sanMoves);
+    setViewIndex(-1);
+    setError(null);
+    return true;
+  }, []);
+
   const goToIndex = useCallback(
     (index: number) => setViewIndex(Math.max(-1, Math.min(moves.length - 1, index))),
     [moves.length]
@@ -82,6 +100,7 @@ export function useChessGame(initialFen: string = STARTING_FEN) {
     error,
     makeMove,
     loadFen,
+    loadMoves,
     resetToStart,
     goToIndex,
     goToPrevious,

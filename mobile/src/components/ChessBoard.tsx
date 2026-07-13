@@ -13,15 +13,19 @@ function squareAt(row: number, col: number): Square {
   return `${FILES[col]}${8 - row}` as Square;
 }
 
+export type SquareOverlayKind = 'correct' | 'wrong' | 'hint';
+
 interface ChessBoardProps {
   board: ReturnType<Chess['board']>;
   selectedSquare: Square | null;
   legalTargets: Square[];
   lastMove?: { from: Square; to: Square } | null;
   onSquarePress: (square: Square) => void;
+  /** Feedback highlight for trainers (coordinate practice, puzzles) — independent of legal-move state. */
+  squareOverlay?: Partial<Record<Square, SquareOverlayKind>>;
 }
 
-export function ChessBoard({ board, selectedSquare, legalTargets, lastMove, onSquarePress }: ChessBoardProps) {
+export function ChessBoard({ board, selectedSquare, legalTargets, lastMove, onSquarePress, squareOverlay }: ChessBoardProps) {
   return (
     <View style={styles.board}>
       {board.map((row, rowIndex) => (
@@ -33,6 +37,7 @@ export function ChessBoard({ board, selectedSquare, legalTargets, lastMove, onSq
             const isLegalTarget = legalTargets.includes(square);
             const isLastMove = square === lastMove?.from || square === lastMove?.to;
             const imageSource = piece ? PIECE_IMAGES[piece.color]?.[piece.type] : null;
+            const overlay = squareOverlay?.[square];
 
             return (
               <Pressable
@@ -43,6 +48,9 @@ export function ChessBoard({ board, selectedSquare, legalTargets, lastMove, onSq
                   isDark ? styles.darkSquare : styles.lightSquare,
                   isLastMove && styles.lastMoveSquare,
                   isSelected && styles.selectedSquare,
+                  overlay === 'correct' && styles.correctSquare,
+                  overlay === 'wrong' && styles.wrongSquare,
+                  overlay === 'hint' && styles.hintSquare,
                 ]}
               >
                 {piece && (
@@ -92,6 +100,15 @@ const styles = StyleSheet.create({
   },
   lastMoveSquare: {
     backgroundColor: '#cdd26a',
+  },
+  correctSquare: {
+    backgroundColor: '#5cb85c',
+  },
+  wrongSquare: {
+    backgroundColor: '#d9534f',
+  },
+  hintSquare: {
+    backgroundColor: '#f0ad4e',
   },
   piece: {
     fontSize: SQUARE_SIZE * 0.7,
