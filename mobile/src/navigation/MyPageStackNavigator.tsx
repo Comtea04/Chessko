@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { MyPageScreen } from '../screens/mypage/MyPageScreen';
 import { SettingsScreen } from '../screens/mypage/SettingsScreen';
+import { GameReviewScreen } from '../screens/mypage/GameReviewScreen';
 import { withScreenTransition } from '../components/ScreenTransition';
 import { useSettings } from '../storage/useSettings';
 import { colors } from '../theme';
@@ -11,6 +12,7 @@ const Stack = createNativeStackNavigator<MyPageStackParamList>();
 
 const MyPage = withScreenTransition(MyPageScreen);
 const Settings = withScreenTransition(SettingsScreen);
+const GameReview = withScreenTransition(GameReviewScreen);
 
 export function MyPageStackNavigator() {
   const { animations } = useSettings();
@@ -28,6 +30,7 @@ export function MyPageStackNavigator() {
     >
       <Stack.Screen name="MyPage" component={MyPage} options={{ headerShown: false }} />
       <Stack.Screen name="Settings" component={Settings} options={{ title: '설정' }} />
+      <Stack.Screen name="GameReview" component={GameReview} options={{ title: '대국 복기' }} />
     </Stack.Navigator>
   );
 }

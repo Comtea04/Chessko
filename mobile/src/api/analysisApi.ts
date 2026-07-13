@@ -40,3 +40,36 @@ export async function analyzePosition(fen: string, multiPv = 3): Promise<Analysi
 
   return response.json();
 }
+
+export interface PositionEvaluation {
+  ply: number;
+  fen: string;
+  status: GameStatus | null;
+  /** Centipawns from the side to move's perspective; null on a forced mate. */
+  scoreCp: number | null;
+  mateIn: number | null;
+  /** False when the engine could not evaluate this position — plot a gap, not a zero. */
+  analyzed: boolean;
+}
+
+/** Evaluates every position of a game in one request, for the advantage graph. */
+export async function analyzeGame(fens: string[]): Promise<PositionEvaluation[]> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/v1/analysis/game`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fens }),
+    });
+  } catch {
+    throw new AnalysisApiError('분석 서버에 연결할 수 없습니다. 서버 주소를 확인해 주세요.');
+  }
+
+  if (!response.ok) {
+    const body: { message?: string } | null = await response.json().catch(() => null);
+    throw new AnalysisApiError(body?.message ?? '대국 분석이 실패했습니다.');
+  }
+
+  const body: { evaluations: PositionEvaluation[] } = await response.json();
+  return body.evaluations;
+}

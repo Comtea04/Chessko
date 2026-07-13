@@ -20,6 +20,8 @@ export type GameResult = 'win' | 'loss' | 'draw';
 
 export interface ChesscomGame {
   url: string;
+  /** Full game score; the review screen replays it with chess.js. */
+  pgn: string;
   /** Result from the linked player's point of view. */
   result: GameResult;
   /** How the game ended, in the raw API vocabulary (checkmated, resigned, timeout, agreed…). */
@@ -40,6 +42,7 @@ interface RawPlayer {
 
 interface RawGame {
   url: string;
+  pgn?: string;
   time_class?: string;
   end_time?: number;
   white: RawPlayer;
@@ -126,6 +129,7 @@ export async function getRecentGames(username: string, limit = 10): Promise<Ches
 
       collected.push({
         url: game.url,
+        pgn: game.pgn ?? '',
         result: toResult(me.result),
         endReason: me.result === 'win' ? them.result : me.result,
         opponent: them.username,

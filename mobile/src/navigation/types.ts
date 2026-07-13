@@ -13,6 +13,12 @@ export type OpeningStackParamList = {
 export type MyPageStackParamList = {
   MyPage: undefined;
   Settings: undefined;
+  GameReview: {
+    pgn: string;
+    opponent: string;
+    /** The linked player's colour, so the board can be shown from their side. */
+    playerColor: 'white' | 'black';
+  };
 };
 
 export type PracticeStackParamList = {

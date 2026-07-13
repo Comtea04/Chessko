@@ -169,7 +169,20 @@ export function MyPageScreen({ navigation }: Props) {
               </Card>
             )}
             {games.map((game) => (
-              <Card key={game.url} style={styles.gameCard}>
+              <Card
+                key={game.url}
+                style={styles.gameCard}
+                onPress={
+                  game.pgn
+                    ? () =>
+                        navigation.navigate('GameReview', {
+                          pgn: game.pgn,
+                          opponent: game.opponent,
+                          playerColor: game.playerColor,
+                        })
+                    : undefined
+                }
+              >
                 <View style={[styles.resultBadge, styles[`result_${game.result}`]]}>
                   <Text style={styles.resultText}>{RESULT_LABELS[game.result]}</Text>
                 </View>
@@ -183,6 +196,7 @@ export function MyPageScreen({ navigation }: Props) {
                     {game.endReason} · {formatDate(game.endTime)}
                   </Text>
                 </View>
+                {game.pgn ? <Ionicons name="chevron-forward" size={18} color={colors.tabInactive} /> : null}
               </Card>
             ))}
           </View>
