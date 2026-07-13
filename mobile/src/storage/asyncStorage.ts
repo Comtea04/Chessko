@@ -12,6 +12,11 @@ export async function readJson<T>(key: string, fallback: T): Promise<T> {
   }
 }
 
+/** Callers fire this without awaiting, so a storage failure must not surface as an unhandled rejection. */
 export async function writeJson<T>(key: string, value: T): Promise<void> {
-  await AsyncStorage.setItem(KEY_PREFIX + key, JSON.stringify(value));
+  try {
+    await AsyncStorage.setItem(KEY_PREFIX + key, JSON.stringify(value));
+  } catch (err) {
+    console.warn(`[storage] failed to persist "${key}"`, err);
+  }
 }
