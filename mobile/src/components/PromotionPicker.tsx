@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { PieceSymbol } from 'chess.js';
+import { PIECE_IMAGES } from './PieceImages';
 
 const CHOICES: { symbol: PieceSymbol; glyph: string; label: string }[] = [
   { symbol: 'q', glyph: '♕', label: '퀸' },
@@ -9,22 +10,30 @@ const CHOICES: { symbol: PieceSymbol; glyph: string; label: string }[] = [
 ];
 
 interface PromotionPickerProps {
+  color: 'w' | 'b';
   onSelect: (piece: PieceSymbol) => void;
   onCancel: () => void;
 }
 
-export function PromotionPicker({ onSelect, onCancel }: PromotionPickerProps) {
+export function PromotionPicker({ color, onSelect, onCancel }: PromotionPickerProps) {
   return (
     <View style={[StyleSheet.absoluteFill, styles.overlay]}>
       <View style={styles.card}>
         <Text style={styles.title}>승진할 기물을 선택하세요</Text>
         <View style={styles.choices}>
-          {CHOICES.map((choice) => (
-            <Pressable key={choice.symbol} style={styles.choice} onPress={() => onSelect(choice.symbol)}>
-              <Text style={styles.glyph}>{choice.glyph}</Text>
-              <Text style={styles.label}>{choice.label}</Text>
-            </Pressable>
-          ))}
+          {CHOICES.map((choice) => {
+            const imageSource = PIECE_IMAGES[color]?.[choice.symbol];
+            return (
+              <Pressable key={choice.symbol} style={styles.choice} onPress={() => onSelect(choice.symbol)}>
+                {imageSource ? (
+                  <Image source={imageSource} style={styles.pieceImage} resizeMode="contain" />
+                ) : (
+                  <Text style={styles.glyph}>{choice.glyph}</Text>
+                )}
+                <Text style={styles.label}>{choice.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
         <Pressable onPress={onCancel}>
           <Text style={styles.cancel}>취소</Text>
@@ -61,6 +70,10 @@ const styles = StyleSheet.create({
   },
   glyph: {
     fontSize: 32,
+  },
+  pieceImage: {
+    width: 40,
+    height: 40,
   },
   label: {
     fontSize: 12,

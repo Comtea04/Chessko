@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Chess, PieceSymbol, Square } from 'chess.js';
+import { PIECE_IMAGES } from './PieceImages';
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
@@ -31,6 +32,7 @@ export function ChessBoard({ board, selectedSquare, legalTargets, lastMove, onSq
             const isSelected = square === selectedSquare;
             const isLegalTarget = legalTargets.includes(square);
             const isLastMove = square === lastMove?.from || square === lastMove?.to;
+            const imageSource = piece ? PIECE_IMAGES[piece.color]?.[piece.type] : null;
 
             return (
               <Pressable
@@ -43,9 +45,16 @@ export function ChessBoard({ board, selectedSquare, legalTargets, lastMove, onSq
                   isSelected && styles.selectedSquare,
                 ]}
               >
-                {piece && <Text style={styles.piece}>{PIECE_GLYPHS[piece.color][piece.type]}</Text>}
+                {piece && (
+                  imageSource ? (
+                    <Image source={imageSource} style={styles.pieceImage} resizeMode="contain" />
+                  ) : (
+                    <Text style={styles.piece}>{PIECE_GLYPHS[piece.color][piece.type]}</Text>
+                  )
+                )}
                 {isLegalTarget && <View style={piece ? styles.captureDot : styles.moveDot} />}
               </Pressable>
+
             );
           })}
         </View>
@@ -87,6 +96,10 @@ const styles = StyleSheet.create({
   piece: {
     fontSize: SQUARE_SIZE * 0.7,
     lineHeight: SQUARE_SIZE * 0.85,
+  },
+  pieceImage: {
+    width: SQUARE_SIZE * 0.8,
+    height: SQUARE_SIZE * 0.8,
   },
   moveDot: {
     position: 'absolute',

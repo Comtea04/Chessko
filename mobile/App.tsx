@@ -123,7 +123,11 @@ export default function App() {
         <AnalysisPanel onAnalyze={handleAnalyze} loading={analysisLoading} error={analysisError} result={analysisResult} />
 
         {pendingPromotion && (
-          <PromotionPicker onSelect={handlePromotionSelect} onCancel={() => setPendingPromotion(null)} />
+          <PromotionPicker
+            color={game.turn}
+            onSelect={handlePromotionSelect}
+            onCancel={() => setPendingPromotion(null)}
+          />
         )}
       </ScrollView>
       <StatusBar style="auto" />

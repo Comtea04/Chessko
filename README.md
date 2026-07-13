@@ -79,28 +79,7 @@ src/main/java/com/chesstutor/
 
 ---
 
-## 6. 개발 진행 현황 (Progress)
-
-* **Phase 1 완료 — 백엔드 엔진 코어 (`backend/`):** Spring Boot + Stockfish 프로세스 풀 기반의 `/api/v1/analysis` API. FEN 검증(프롬프트 인젝션 방어 포함), 체크메이트/스테일메이트 감지, 엔진 타임아웃 시 친절한 에러 메시지, 단위/통합 테스트 21개.
-* **Phase 2 완료 — 모바일 앱 (`mobile/`):** Expo(React Native) 기반 FEN 입력·체스판 렌더링·기보(수순) 뷰어. `analysisApi.ts`가 백엔드 `/api/v1/analysis`를 호출해 최선의 수와 평가값을 표시.
-* **Phase 3 완료 — RAG 지능형 해설 (`backend/`):** `/api/v1/analysis/commentary` API 추가.
-  * `RagService`가 Stockfish 평가 결과를 받아 `OpenAiClient`(임베딩+챗 완성)와 `VectorStoreClient`(Supabase pgvector RPC 검색)를 조합해 초보자용 3~4줄 한국어 해설을 생성.
-  * 체크메이트/스테일메이트는 LLM 호출 없이 고정 문구로 즉시 응답.
-  * 프롬프트 조립(`RagPromptBuilder`)과 검색/생성 오케스트레이션(`RagService`)을 분리해 단위 테스트로 검증(엔진 응답 파서와 동일한 패턴).
-  * LLM/벡터 검색 실패는 `CommentaryUnavailableException` → 503 friendly 메시지로 매핑, 엔진 타임아웃과 별개로 구분.
-  * Supabase 스키마·RPC 함수·시드 데이터는 `backend/src/main/resources/db/`에 위치(`supabase_setup.sql`, `opening_principles_seed.json`, 설정 방법은 해당 폴더의 `README.md` 참고). 시딩은 `CHESSKO_RAG_SEED_ON_STARTUP=true`일 때만 동작하는 opt-in 툴(`OpeningPrincipleSeeder`).
-  * 단위/통합 테스트 30개(RAG 관련 9개 추가).
-* **Phase 4 완료 — Vision 스크린샷 스캐너 (`vision/`, `backend/`, `mobile/`):**
-  * **스코프 변경:** 실제 체스판 사진이 아니라 **chess.com/lichess 등 앱 화면 스크린샷**을 입력으로 받도록 설계를 조정했습니다(사용자 결정). 스크린샷은 원근 왜곡·조명 변화가 없고 사이트별 기물 스타일이 고정돼 있어, 학습된 모델이나 클라우드 API 없이도 순수 OpenCV만으로 충분히 정확합니다. 실제 보드를 입력하고 싶으면 원하는 앱에 기물을 배치한 뒤 그 화면을 캡쳐하면 됩니다.
-  * **Python 마이크로서비스 (`vision/`, FastAPI + OpenCV):** 시작 위치 스크린샷 한 장으로 사이트/테마별 기물 12종을 자동으로 학습하는 `POST /themes/{id}/enroll`, 이후 임의의 스크린샷을 FEN으로 변환하는 `POST /scan`. 배경색과 무관한 실루엣 마스크로 기물 종류를, 밝기로 기물 색을 판별. 자세한 설계/한계는 `vision/README.md` 참고.
-  * **백엔드 연동:** `VisionClient`가 이미지를 멀티파트로 마이크로서비스에 전달하고 에러를 `VisionThemeNotFoundException`(404)/`InvalidVisionImageException`(400)/`VisionUnavailableException`(503)으로 매핑. `VisionController`가 `/api/v1/vision/themes/{id}/enroll`, `/api/v1/vision/scan` 노출.
-  * **모바일:** `VisionImportPanel`에서 스크린샷 선택(`expo-image-picker`) → 테마 등록/스캔 → 결과 FEN을 바로 보드에 로드.
-  * 저작권 있는 실제 사이트 스킨 이미지는 테스트에 포함하지 않고, 구분되는 도형 글리프로 합성한 스크린샷으로 파이프라인 전체(등록→스캔→FEN)를 검증(Python 17개 테스트 + 백엔드 Vision 컨트롤러 테스트 5개, 백엔드 총 35개). 실제 uvicorn 서버를 띄워 curl로 enroll/scan/404 경로도 별도 확인.
-* **다음 단계:** Phase 5(Freemium/결제).
-
----
-
-## 7. 로컬 실행 방법 (Running Locally)
+## 6. 로컬 실행 방법 (Running Locally)
 
 세 구성요소(`vision/` → `backend/` → `mobile/`)는 서로 호출하는 관계이므로 이 순서로 띄우는 것을 권장합니다. 각자 다른 터미널에서 실행하세요.
 
@@ -124,17 +103,23 @@ uvicorn app.main:app --reload --port 8000
 
 ### 2) 백엔드 (`backend/`)
 
+`backend/.env`에 필요한 값을 채워두면 `run.sh`가 이를 읽어 환경변수로 export한 뒤 실행합니다.
+
 ```bash
-cd backend
-STOCKFISH_PATH=/path/to/stockfish \
-VISION_SERVICE_URL=http://localhost:8000 \
-OPENAI_API_KEY=sk-...                     \
-SUPABASE_URL=https://xxxxx.supabase.co    \
-SUPABASE_SERVICE_KEY=...                  \
-./gradlew bootRun
+# backend/.env
+STOCKFISH_PATH=/path/to/stockfish
+OPENAI_API_KEY=sk-...
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_SERVICE_KEY=...
+# VISION_SERVICE_URL=http://localhost:8000   # 기본값이라 로컬에서는 생략 가능
 ```
 
-`VISION_SERVICE_URL`은 기본값이 이미 `http://localhost:8000`이라 로컬에서는 생략 가능합니다. `OPENAI_API_KEY`/`SUPABASE_*`를 비워두면 `/api/v1/analysis`·`/api/v1/vision/*`는 정상 동작하고 `/api/v1/analysis/commentary`만 503으로 응답합니다.
+```bash
+cd backend
+./run.sh
+```
+
+`OPENAI_API_KEY`/`SUPABASE_*`를 비워두면 `/api/v1/analysis`·`/api/v1/vision/*`는 정상 동작하고 `/api/v1/analysis/commentary`만 503으로 응답합니다. `.env`는 `.gitignore`에 포함되어 커밋되지 않습니다.
 
 ### 3) 모바일 앱 (`mobile/`)
 
@@ -153,3 +138,24 @@ cd backend && ./gradlew test          # Java 21 필요
 cd vision  && python -m pytest        # requirements-dev.txt 설치 후
 cd mobile  && npx tsc --noEmit        # 타입 체크
 ```
+
+---
+
+## 7. 개발 진행 현황 (Progress)
+
+* **Phase 1 완료 — 백엔드 엔진 코어 (`backend/`):** Spring Boot + Stockfish 프로세스 풀 기반의 `/api/v1/analysis` API. FEN 검증(프롬프트 인젝션 방어 포함), 체크메이트/스테일메이트 감지, 엔진 타임아웃 시 친절한 에러 메시지, 단위/통합 테스트 21개.
+* **Phase 2 완료 — 모바일 앱 (`mobile/`):** Expo(React Native) 기반 FEN 입력·체스판 렌더링·기보(수순) 뷰어. `analysisApi.ts`가 백엔드 `/api/v1/analysis`를 호출해 최선의 수와 평가값을 표시.
+* **Phase 3 완료 — RAG 지능형 해설 (`backend/`):** `/api/v1/analysis/commentary` API 추가.
+  * `RagService`가 Stockfish 평가 결과를 받아 `OpenAiClient`(임베딩+챗 완성)와 `VectorStoreClient`(Supabase pgvector RPC 검색)를 조합해 초보자용 3~4줄 한국어 해설을 생성.
+  * 체크메이트/스테일메이트는 LLM 호출 없이 고정 문구로 즉시 응답.
+  * 프롬프트 조립(`RagPromptBuilder`)과 검색/생성 오케스트레이션(`RagService`)을 분리해 단위 테스트로 검증(엔진 응답 파서와 동일한 패턴).
+  * LLM/벡터 검색 실패는 `CommentaryUnavailableException` → 503 friendly 메시지로 매핑, 엔진 타임아웃과 별개로 구분.
+  * Supabase 스키마·RPC 함수·시드 데이터는 `backend/src/main/resources/db/`에 위치(`supabase_setup.sql`, `opening_principles_seed.json`, 설정 방법은 해당 폴더의 `README.md` 참고). 시딩은 `CHESSKO_RAG_SEED_ON_STARTUP=true`일 때만 동작하는 opt-in 툴(`OpeningPrincipleSeeder`).
+  * 단위/통합 테스트 30개(RAG 관련 9개 추가).
+* **Phase 4 완료 — Vision 스크린샷 스캐너 (`vision/`, `backend/`, `mobile/`):**
+  * **스코프 변경:** 실제 체스판 사진이 아니라 **chess.com/lichess 등 앱 화면 스크린샷**을 입력으로 받도록 설계를 조정했습니다(사용자 결정). 스크린샷은 원근 왜곡·조명 변화가 없고 사이트별 기물 스타일이 고정돼 있어, 학습된 모델이나 클라우드 API 없이도 순수 OpenCV만으로 충분히 정확합니다. 실제 보드를 입력하고 싶으면 원하는 앱에 기물을 배치한 뒤 그 화면을 캡쳐하면 됩니다.
+  * **Python 마이크로서비스 (`vision/`, FastAPI + OpenCV):** 시작 위치 스크린샷 한 장으로 사이트/테마별 기물 12종을 자동으로 학습하는 `POST /themes/{id}/enroll`, 이후 임의의 스크린샷을 FEN으로 변환하는 `POST /scan`. 배경색과 무관한 실루엣 마스크로 기물 종류를, 밝기로 기물 색을 판별. 자세한 설계/한계는 `vision/README.md` 참고.
+  * **백엔드 연동:** `VisionClient`가 이미지를 멀티파트로 마이크로서비스에 전달하고 에러를 `VisionThemeNotFoundException`(404)/`InvalidVisionImageException`(400)/`VisionUnavailableException`(503)으로 매핑. `VisionController`가 `/api/v1/vision/themes/{id}/enroll`, `/api/v1/vision/scan` 노출.
+  * **모바일:** `VisionImportPanel`에서 스크린샷 선택(`expo-image-picker`) → 테마 등록/스캔 → 결과 FEN을 바로 보드에 로드.
+  * 저작권 있는 실제 사이트 스킨 이미지는 테스트에 포함하지 않고, 구분되는 도형 글리프로 합성한 스크린샷으로 파이프라인 전체(등록→스캔→FEN)를 검증(Python 17개 테스트 + 백엔드 Vision 컨트롤러 테스트 5개, 백엔드 총 35개). 실제 uvicorn 서버를 띄워 curl로 enroll/scan/404 경로도 별도 확인.
+* **다음 단계:** Phase 5(Freemium/결제).
