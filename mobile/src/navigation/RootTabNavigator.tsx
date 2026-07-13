@@ -4,15 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { OpeningStackNavigator } from './OpeningStackNavigator';
 import { PracticeStackNavigator } from './PracticeStackNavigator';
-import { MyPageScreen } from '../screens/mypage/MyPageScreen';
-import { withScreenTransition } from '../components/ScreenTransition';
+import { MyPageStackNavigator } from './MyPageStackNavigator';
 import { useSettings } from '../storage/useSettings';
 import { colors } from '../theme';
 import type { RootTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
-
-const MyPage = withScreenTransition(MyPageScreen);
 
 const ICONS: Record<keyof RootTabParamList, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
   OpeningTab: { active: 'book', inactive: 'book-outline' },
@@ -48,7 +45,7 @@ export function RootTabNavigator() {
     >
       <Tab.Screen name="OpeningTab" component={OpeningStackNavigator} options={{ title: '오프닝' }} />
       <Tab.Screen name="PracticeTab" component={PracticeStackNavigator} options={{ title: '연습' }} />
-      <Tab.Screen name="MyPageTab" component={MyPage} options={{ title: '마이페이지' }} />
+      <Tab.Screen name="MyPageTab" component={MyPageStackNavigator} options={{ title: '마이페이지' }} />
     </Tab.Navigator>
   );
 }

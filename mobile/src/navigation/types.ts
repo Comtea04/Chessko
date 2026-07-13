@@ -10,6 +10,11 @@ export type OpeningStackParamList = {
   Analysis: { initialFen?: string } | undefined;
 };
 
+export type MyPageStackParamList = {
+  MyPage: undefined;
+  Settings: undefined;
+};
+
 export type PracticeStackParamList = {
   PracticeHome: undefined;
   CoordinateTrainer: undefined;
