@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Chess } from 'chess.js';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ChessBoard } from '../../components/ChessBoard';
-import { EvalGraph } from '../../components/EvalGraph';
+import { EvalBar } from '../../components/EvalBar';
 import { MoveList } from '../../components/MoveList';
 import { useChessGame } from '../../hooks/useChessGame';
 import { analyzeGame, AnalysisApiError, type PositionEvaluation } from '../../api/analysisApi';
@@ -72,8 +72,6 @@ export function GameReviewScreen({ route }: Props) {
     };
   }, [parsed]);
 
-  const handleSelectPly = useCallback((ply: number) => game.goToIndex(ply - 1), [game]);
-
   if (!parsed) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -90,14 +88,17 @@ export function GameReviewScreen({ route }: Props) {
           {playerColor === 'white' ? '백' : '흑'}으로 둔 대국 · 총 {parsed.moves.length}수
         </Text>
 
-        <ChessBoard
-          board={game.board}
-          selectedSquare={null}
-          legalTargets={[]}
-          lastMove={game.lastMove}
-          flipped={playerColor === 'black'}
-          onSquarePress={() => {}}
-        />
+        <View style={styles.boardRow}>
+          <EvalBar evaluation={evaluations[game.viewIndex + 1]} flipped={playerColor === 'black'} />
+          <ChessBoard
+            board={game.board}
+            selectedSquare={null}
+            legalTargets={[]}
+            lastMove={game.lastMove}
+            flipped={playerColor === 'black'}
+            onSquarePress={() => {}}
+          />
+        </View>
 
         {loading && (
           <View style={styles.statusRow}>
@@ -111,10 +112,6 @@ export function GameReviewScreen({ route }: Props) {
             <Text style={styles.errorText}>{error}</Text>
             <Text style={styles.errorHint}>분석 서버(backend)가 실행 중인지 확인해 주세요. 수순 재생은 그대로 가능합니다.</Text>
           </View>
-        )}
-
-        {evaluations.length > 0 && (
-          <EvalGraph evaluations={evaluations} currentPly={game.viewIndex + 1} onSelectPly={handleSelectPly} />
         )}
 
         <MoveList
@@ -139,6 +136,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
     gap: spacing.md,
+  },
+  boardRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
   title: {
     ...typography.title,
