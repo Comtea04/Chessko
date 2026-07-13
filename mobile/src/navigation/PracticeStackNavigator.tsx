@@ -17,7 +17,7 @@ const PuzzleTrainer = withScreenTransition(PuzzleTrainerScreen);
 const OpeningRecall = withScreenTransition(OpeningRecallScreen);
 
 export function PracticeStackNavigator() {
-  const { springTransitions } = useSettings();
+  const { animations } = useSettings();
 
   return (
     <Stack.Navigator
@@ -25,9 +25,10 @@ export function PracticeStackNavigator() {
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,
         headerShadowVisible: false,
-        animation: springTransitions ? 'slide_from_right' : 'none',
-        gestureEnabled: springTransitions,
-        fullScreenGestureEnabled: springTransitions,
+        // Cross-fade rather than slide: shared furniture (header, board) morphs in place.
+        animation: animations ? 'fade' : 'none',
+        gestureEnabled: animations,
+        fullScreenGestureEnabled: animations,
       }}
     >
       <Stack.Screen name="PracticeHome" component={PracticeHome} options={{ headerShown: false }} />

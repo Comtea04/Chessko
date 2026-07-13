@@ -1,39 +1,43 @@
 import { useCallback, useRef } from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated, Easing, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { useSettings } from '../storage/useSettings';
 
+const MORPH_MS = 260;
+/** Fast out, slow in: motion decelerates into its resting place instead of bouncing past it. */
+const MORPH_EASING = Easing.bezier(0.2, 0, 0, 1);
+
 /**
- * Springs a screen into place when it gains focus: it settles with a slight overshoot, so
- * entering a screen feels elastic rather than instant. Damping is deliberately below critical —
- * that overshoot *is* the effect. Disabled by the springTransitions setting.
+ * Morph-style entrance: the screen cross-fades in while settling from a barely-larger scale.
+ * Paired with a cross-fading navigator animation, elements that sit in the same place on both
+ * screens (header, board, cards) read as one element flowing into the next rather than a cut.
+ * There is deliberately no overshoot — the motion only decelerates.
  */
 export function ScreenTransition({ children }: { children: React.ReactNode }) {
-  const { springTransitions } = useSettings();
+  const { animations } = useSettings();
   const progress = useRef(new Animated.Value(1)).current;
 
   useFocusEffect(
     useCallback(() => {
-      if (!springTransitions) {
+      if (!animations) {
         progress.setValue(1);
         return;
       }
 
       progress.setValue(0);
-      const animation = Animated.spring(progress, {
+      const animation = Animated.timing(progress, {
         toValue: 1,
-        stiffness: 170,
-        damping: 12,
-        mass: 0.9,
+        duration: MORPH_MS,
+        easing: MORPH_EASING,
         useNativeDriver: true,
       });
       animation.start();
       return () => animation.stop();
-    }, [springTransitions, progress])
+    }, [animations, progress])
   );
 
-  if (!springTransitions) {
+  if (!animations) {
     return <>{children}</>;
   }
 
@@ -42,11 +46,8 @@ export function ScreenTransition({ children }: { children: React.ReactNode }) {
       style={[
         styles.fill,
         {
-          opacity: progress.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1, 1] }),
-          transform: [
-            { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.93, 1] }) },
-            { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) },
-          ],
+          opacity: progress,
+          transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [1.02, 1] }) }],
         },
       ]}
     >

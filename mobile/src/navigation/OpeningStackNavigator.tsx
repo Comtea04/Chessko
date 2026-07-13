@@ -15,7 +15,7 @@ const OpeningDetail = withScreenTransition(OpeningDetailScreen);
 const Analysis = withScreenTransition(AnalysisScreen);
 
 export function OpeningStackNavigator() {
-  const { springTransitions } = useSettings();
+  const { animations } = useSettings();
 
   return (
     <Stack.Navigator
@@ -23,10 +23,11 @@ export function OpeningStackNavigator() {
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,
         headerShadowVisible: false,
-        animation: springTransitions ? 'slide_from_right' : 'none',
+        // Cross-fade rather than slide: shared furniture (header, board) morphs in place.
+        animation: animations ? 'fade' : 'none',
         // Swipe anywhere on the screen to go back, not just from the very edge.
-        gestureEnabled: springTransitions,
-        fullScreenGestureEnabled: springTransitions,
+        gestureEnabled: animations,
+        fullScreenGestureEnabled: animations,
       }}
     >
       <Stack.Screen name="OpeningList" component={OpeningList} options={{ headerShown: false }} />

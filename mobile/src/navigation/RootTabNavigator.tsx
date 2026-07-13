@@ -1,3 +1,4 @@
+import { Easing } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -20,7 +21,7 @@ const ICONS: Record<keyof RootTabParamList, { active: keyof typeof Ionicons.glyp
 };
 
 export function RootTabNavigator() {
-  const { springTransitions } = useSettings();
+  const { animations } = useSettings();
 
   return (
     <Tab.Navigator
@@ -33,11 +34,11 @@ export function RootTabNavigator() {
           borderTopColor: colors.border,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        // Tabs slide across with an underdamped spring, so switching overshoots slightly and settles.
-        animation: springTransitions ? 'shift' : 'none',
+        // Cross-fade tabs so the shared layout (header, cards) reads as one screen morphing into the next.
+        animation: animations ? 'fade' : 'none',
         transitionSpec: {
-          animation: 'spring',
-          config: { stiffness: 170, damping: 14, mass: 0.9 },
+          animation: 'timing',
+          config: { duration: 260, easing: Easing.bezier(0.2, 0, 0, 1) },
         },
         tabBarIcon: ({ focused, color, size }) => {
           const icon = ICONS[route.name];

@@ -2,19 +2,16 @@ import { useCallback } from 'react';
 import { usePersistentState } from './usePersistentState';
 
 export interface Settings {
-  /** Springy screen transitions. Turn off while debugging layout — the bounce gets in the way. */
-  springTransitions: boolean;
+  /** Screen morph transitions and sliding pieces. Turn off while debugging — motion gets in the way. */
+  animations: boolean;
 }
 
-const INITIAL: Settings = { springTransitions: true };
+const INITIAL: Settings = { animations: true };
 
 export function useSettings() {
   const { value, setValue, loaded } = usePersistentState<Settings>('settings', INITIAL);
 
-  const setSpringTransitions = useCallback(
-    (on: boolean) => setValue((prev) => ({ ...prev, springTransitions: on })),
-    [setValue]
-  );
+  const setAnimations = useCallback((on: boolean) => setValue((prev) => ({ ...prev, animations: on })), [setValue]);
 
-  return { ...value, setSpringTransitions, loaded };
+  return { ...value, setAnimations, loaded };
 }

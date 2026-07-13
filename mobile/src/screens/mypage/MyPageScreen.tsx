@@ -6,7 +6,7 @@ import { useSettings } from '../../storage/useSettings';
 import { colors, spacing, typography } from '../../theme';
 
 export function MyPageScreen() {
-  const { springTransitions, setSpringTransitions } = useSettings();
+  const { animations, setAnimations } = useSettings();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -15,14 +15,14 @@ export function MyPageScreen() {
         <Card>
           <View style={styles.settingRow}>
             <View style={styles.settingText}>
-              <Text style={styles.settingTitle}>말랑한 화면 전환</Text>
+              <Text style={styles.settingTitle}>애니메이션</Text>
               <Text style={styles.settingDesc}>
-                화면이 스프링처럼 튕기며 전환되고, 화면을 옆으로 밀어 뒤로 갈 수 있습니다. 디버깅할 때는 꺼두세요.
+                화면이 모핑하듯 부드럽게 전환되고, 기물이 미끄러지듯 움직입니다. 디버깅할 때는 꺼두세요.
               </Text>
             </View>
             <Switch
-              value={springTransitions}
-              onValueChange={setSpringTransitions}
+              value={animations}
+              onValueChange={setAnimations}
               trackColor={{ true: colors.primary, false: colors.border }}
             />
           </View>
