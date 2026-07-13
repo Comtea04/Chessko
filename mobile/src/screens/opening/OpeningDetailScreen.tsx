@@ -12,6 +12,7 @@ import type { OpeningStackParamList } from '../../navigation/types';
 type Props = NativeStackScreenProps<OpeningStackParamList, 'OpeningDetail'>;
 
 const WRONG_MOVE_HOLD_MS = 520;
+const OPPONENT_REPLY_MS = 650;
 
 function positionAfter(moves: string[], count: number): Chess {
   const chess = new Chess();
@@ -37,6 +38,9 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   const { isSaved, toggleSaved } = useSavedOpenings();
 
   const moves = useMemo(() => opening?.moves ?? [], [opening]);
+  // 0 when the user studies white, 1 when black: the parity of the steps they play themselves.
+  const userParity = opening?.sideToLearn === 'b' ? 1 : 0;
+
   const [step, setStep] = useState(0);
   const [selected, setSelected] = useState<Square | null>(null);
   // A move that strays from the line is shown for a beat, then taken back.
@@ -44,14 +48,28 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
 
   const flash = useRef(new Animated.Value(0)).current;
   const revertTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
       if (revertTimer.current) clearTimeout(revertTimer.current);
+      if (replyTimer.current) clearTimeout(replyTimer.current);
     },
     []
   );
 
   const position = useMemo(() => positionAfter(moves, step), [moves, step]);
+
+  const finished = step >= moves.length;
+  const isUserTurn = !finished && step % 2 === userParity;
+
+  // The opponent's moves are not something to memorise, so they play themselves.
+  useEffect(() => {
+    if (finished || isUserTurn || wrongPosition) return;
+    replyTimer.current = setTimeout(() => setStep((prev) => prev + 1), OPPONENT_REPLY_MS);
+    return () => {
+      if (replyTimer.current) clearTimeout(replyTimer.current);
+    };
+  }, [finished, isUserTurn, wrongPosition, step]);
 
   const expected = useMemo(() => {
     const san = moves[step];
@@ -74,7 +92,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
 
   const handleSquarePress = useCallback(
     (square: Square) => {
-      if (!expected || wrongPosition) return;
+      if (!expected || wrongPosition || !isUserTurn) return;
 
       const chess = new Chess(position.fen());
       const piece = chess.get(square);
@@ -104,7 +122,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
       setWrongPosition({ fen: chess.fen(), from: move.from as Square, to: move.to as Square });
       showWrong();
     },
-    [expected, wrongPosition, position, selected, showWrong]
+    [expected, wrongPosition, isUserTurn, position, selected, showWrong]
   );
 
   const goNext = useCallback(() => {
@@ -116,8 +134,12 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   const goPrevious = useCallback(() => {
     if (wrongPosition || step === 0) return;
     setSelected(null);
-    setStep((prev) => prev - 1);
-  }, [wrongPosition, step]);
+    // Land on a step the user plays; stopping on an opponent step would just auto-advance again.
+    setStep((prev) => {
+      const target = prev - 1;
+      return target > 0 && target % 2 !== userParity ? target - 1 : target;
+    });
+  }, [wrongPosition, step, userParity]);
 
   const restart = useCallback(() => {
     if (revertTimer.current) clearTimeout(revertTimer.current);
@@ -136,7 +158,6 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
 
   const saved = isSaved(opening.id);
   const flipped = opening.sideToLearn === 'b';
-  const finished = step >= moves.length;
 
   const displayed = wrongPosition ? new Chess(wrongPosition.fen) : position;
   const lastPlayed = step > 0 ? positionAfter(moves, step).history({ verbose: true }).at(-1) : undefined;
@@ -173,7 +194,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
         <View style={styles.stepCard}>
           {finished ? (
             <Text style={styles.stepTitle}>수순 완료! 총 {moves.length}수를 모두 따라갔습니다.</Text>
-          ) : (
+          ) : isUserTurn ? (
             <>
               <Text style={styles.stepTitle}>
                 {moveNumber}. {sideToMove} — {expected?.san}
@@ -181,6 +202,13 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
               <Text style={styles.stepHint}>
                 {expected ? `${expected.from} → ${expected.to} 화살표대로 말을 옮기거나, '다음'을 누르세요.` : ''}
               </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.stepTitle}>
+                {moveNumber}. {sideToMove} — {expected?.san}
+              </Text>
+              <Text style={styles.stepHint}>상대의 수입니다. 잠시 후 자동으로 둡니다…</Text>
             </>
           )}
           <Text style={styles.stepCounter}>
@@ -193,7 +221,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
           selectedSquare={selected}
           legalTargets={legalTargets}
           lastMove={lastMove}
-          arrow={wrongPosition || finished ? null : expected}
+          arrow={wrongPosition || finished || !isUserTurn ? null : expected}
           flipped={flipped}
           onSquarePress={handleSquarePress}
         />
