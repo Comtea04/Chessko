@@ -5,7 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ChessBoard } from '../../components/ChessBoard';
 import { ScreenHeader } from '../../components/ScreenHeader';
-import { OPENINGS, type Opening } from '../../data/openings';
+import { OPENINGS, plainSan, type Opening, type OpeningLine } from '../../data/openings';
 import { useSavedOpenings } from '../../storage/useSavedOpenings';
 import { colors, radius, spacing, typography } from '../../theme';
 import type { PracticeStackParamList } from '../../navigation/types';
@@ -16,6 +16,7 @@ const CHOICE_COUNT = 4;
 
 interface Question {
   opening: Opening;
+  line: OpeningLine;
   /** Number of moves already played; the answer is the move at this index. */
   step: number;
   fen: string;
@@ -34,27 +35,31 @@ function shuffle<T>(items: T[]): T[] {
 
 /**
  * Asks for a move played by the side the user is studying: with a white opening the question
- * always lands on a white move, so the user recalls their own choices, not the opponent's.
+ * always lands on a white move, so the user recalls their own choices, not the opponent's. Every
+ * line of an opening is fair game — including the ones that punish a mistake, which is where
+ * remembering the exact move matters most.
  */
 function buildQuestion(openings: Opening[]): Question | null {
-  const pool = shuffle(openings);
+  const pool = shuffle(openings.flatMap((opening) => opening.lines.map((line) => ({ opening, line }))));
 
-  for (const opening of pool) {
+  for (const { opening, line } of pool) {
     const parity = opening.sideToLearn === 'w' ? 0 : 1;
-    const steps = opening.moves.map((_, index) => index).filter((index) => index % 2 === parity);
+    const moves = line.moves.map(plainSan);
+    const steps = moves.map((_, index) => index).filter((index) => index % 2 === parity);
     if (steps.length === 0) continue;
 
     const step = steps[Math.floor(Math.random() * steps.length)];
 
     const chess = new Chess();
-    for (let i = 0; i < step; i++) chess.move(opening.moves[i]);
+    for (let i = 0; i < step; i++) chess.move(moves[i]);
 
-    const answer = opening.moves[step];
+    const answer = moves[step];
     const distractors = shuffle(chess.moves().filter((san) => san !== answer)).slice(0, CHOICE_COUNT - 1);
     if (distractors.length === 0) continue;
 
     return {
       opening,
+      line,
       step,
       fen: chess.fen(),
       answer,
@@ -162,7 +167,8 @@ export function OpeningRecallScreen({ navigation }: Props) {
             <View style={styles.questionCard}>
               <Text style={styles.questionOpening}>{question.opening.name}</Text>
               <Text style={styles.questionPrompt}>
-                {Math.floor(question.step / 2) + 1}수째 · {question.opening.sideToLearn === 'w' ? '백' : '흑'} 차례 — 다음 수는?
+                {question.line.name} · {Math.floor(question.step / 2) + 1}수째 ·{' '}
+                {question.opening.sideToLearn === 'w' ? '백' : '흑'} 차례 — 다음 수는?
               </Text>
             </View>
 

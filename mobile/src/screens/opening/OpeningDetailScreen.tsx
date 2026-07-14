@@ -4,7 +4,10 @@ import { Chess, type Square } from 'chess.js';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ChessBoard } from '../../components/ChessBoard';
-import { getOpeningById } from '../../data/openings';
+import { EvalBar } from '../../components/EvalBar';
+import { MoveQualityBadge, QUALITY_STYLES } from '../../components/MoveQualityBadge';
+import { annotationsFor, evalCp, formatEval, isNotable } from '../../data/openingAnnotations';
+import { getLine, getOpeningById, plainSan, type LineKind, type OpeningLine } from '../../data/openings';
 import { useSavedOpenings } from '../../storage/useSavedOpenings';
 import { colors, radius, spacing, typography } from '../../theme';
 import type { OpeningStackParamList } from '../../navigation/types';
@@ -13,6 +16,14 @@ type Props = NativeStackScreenProps<OpeningStackParamList, 'OpeningDetail'>;
 
 const WRONG_MOVE_HOLD_MS = 520;
 const OPPONENT_REPLY_MS = 650;
+/** A move that carries a lesson — a blunder, a note — needs time to be read before it lands. */
+const OPPONENT_LESSON_MS = 1900;
+
+const LINE_KINDS: Record<LineKind, { label: string; color: string }> = {
+  main: { label: '메인', color: colors.primary },
+  variation: { label: '변형', color: colors.accent },
+  punish: { label: '응징', color: colors.danger },
+};
 
 function positionAfter(moves: string[], count: number): Chess {
   const chess = new Chess();
@@ -33,11 +44,21 @@ function tryMove(chess: Chess, from: Square, to: Square) {
   }
 }
 
+function moveLabel(ply: number, san: string): string {
+  const number = Math.floor(ply / 2) + 1;
+  return ply % 2 === 0 ? `${number}. ${san}` : `${number}... ${san}`;
+}
+
 export function OpeningDetailScreen({ route, navigation }: Props) {
   const opening = getOpeningById(route.params.openingId);
   const { isSaved, toggleSaved } = useSavedOpenings();
 
-  const moves = useMemo(() => opening?.moves ?? [], [opening]);
+  const [lineId, setLineId] = useState(opening?.lines[0]?.id ?? '');
+  const line: OpeningLine | undefined = opening && getLine(opening, lineId);
+
+  // The annotations are indexed by ply, exactly like the moves they grade.
+  const annotations = useMemo(() => (opening && line ? annotationsFor(opening, line) : []), [opening, line]);
+  const moves = useMemo(() => line?.moves.map(plainSan) ?? [], [line]);
   // 0 when the user studies white, 1 when black: the parity of the steps they play themselves.
   const userParity = opening?.sideToLearn === 'b' ? 1 : 0;
 
@@ -62,14 +83,16 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   const finished = step >= moves.length;
   const isUserTurn = !finished && step % 2 === userParity;
 
-  // The opponent's moves are not something to memorise, so they play themselves.
+  // The opponent's moves are not something to memorise, so they play themselves. A mistake the line
+  // exists to punish is held on screen longer — it is the whole point of watching it be played.
   useEffect(() => {
     if (finished || isUserTurn || wrongPosition) return;
-    replyTimer.current = setTimeout(() => setStep((prev) => prev + 1), OPPONENT_REPLY_MS);
+    const teaches = line?.notes?.[step] !== undefined || isNotable(annotations[step]?.quality ?? 'good');
+    replyTimer.current = setTimeout(() => setStep((prev) => prev + 1), teaches ? OPPONENT_LESSON_MS : OPPONENT_REPLY_MS);
     return () => {
       if (replyTimer.current) clearTimeout(replyTimer.current);
     };
-  }, [finished, isUserTurn, wrongPosition, step]);
+  }, [finished, isUserTurn, wrongPosition, step, line, annotations]);
 
   const expected = useMemo(() => {
     const san = moves[step];
@@ -125,6 +148,13 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
     [expected, wrongPosition, isUserTurn, position, selected, showWrong]
   );
 
+  const jumpTo = useCallback((target: number) => {
+    if (revertTimer.current) clearTimeout(revertTimer.current);
+    setWrongPosition(null);
+    setSelected(null);
+    setStep(target);
+  }, []);
+
   const goNext = useCallback(() => {
     if (wrongPosition || step >= moves.length) return;
     setSelected(null);
@@ -141,14 +171,12 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
     });
   }, [wrongPosition, step, userParity]);
 
-  const restart = useCallback(() => {
-    if (revertTimer.current) clearTimeout(revertTimer.current);
-    setWrongPosition(null);
-    setSelected(null);
-    setStep(0);
-  }, []);
+  const selectLine = useCallback((id: string) => {
+    setLineId(id);
+    jumpTo(0);
+  }, [jumpTo]);
 
-  if (!opening) {
+  if (!opening || !line) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <Text style={styles.notFound}>오프닝을 찾을 수 없습니다.</Text>
@@ -160,7 +188,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   const flipped = opening.sideToLearn === 'b';
 
   const displayed = wrongPosition ? new Chess(wrongPosition.fen) : position;
-  const lastPlayed = step > 0 ? positionAfter(moves, step).history({ verbose: true }).at(-1) : undefined;
+  const lastPlayed = step > 0 ? position.history({ verbose: true }).at(-1) : undefined;
   const lastMove = wrongPosition
     ? { from: wrongPosition.from, to: wrongPosition.to }
     : lastPlayed
@@ -171,8 +199,10 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
     ? displayed.moves({ square: selected, verbose: true }).map((move) => move.to as Square)
     : [];
 
-  const moveNumber = Math.floor(step / 2) + 1;
-  const sideToMove = step % 2 === 0 ? '백' : '흑';
+  const previous = step > 0 ? annotations[step - 1] : undefined;
+  const upcoming = finished ? undefined : annotations[step];
+  // The start position is dead equal; every later bar reading comes from the move that produced it.
+  const barCp = step === 0 ? 0 : evalCp(previous);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -191,46 +221,111 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
 
         <Text style={styles.description}>{opening.description}</Text>
 
-        <View style={styles.stepCard}>
-          {finished ? (
-            <Text style={styles.stepTitle}>수순 완료! 총 {moves.length}수를 모두 따라갔습니다.</Text>
-          ) : isUserTurn ? (
-            <>
-              <Text style={styles.stepTitle}>
-                {moveNumber}. {sideToMove} — {expected?.san}
-              </Text>
-              <Text style={styles.stepHint}>
-                {expected ? `${expected.from} → ${expected.to} 화살표대로 말을 옮기거나, '다음'을 누르세요.` : ''}
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.stepTitle}>
-                {moveNumber}. {sideToMove} — {expected?.san}
-              </Text>
-              <Text style={styles.stepHint}>상대의 수입니다. 잠시 후 자동으로 둡니다…</Text>
-            </>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lineTabs}>
+          {opening.lines.map((candidate) => {
+            const active = candidate.id === line.id;
+            const kind = LINE_KINDS[candidate.kind];
+            return (
+              <Pressable
+                key={candidate.id}
+                style={[styles.lineTab, active && { borderColor: kind.color, backgroundColor: colors.surface }]}
+                onPress={() => selectLine(candidate.id)}
+              >
+                <View style={[styles.kindDot, { backgroundColor: kind.color }]}>
+                  <Text style={styles.kindDotText}>{kind.label}</Text>
+                </View>
+                <Text style={[styles.lineTabText, active && styles.lineTabTextActive]}>{candidate.name}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.lineCard}>
+          <Text style={styles.lineDescription}>{line.description}</Text>
+          {line.branchPly > 0 && (
+            <Text style={styles.branchNote}>
+              메인라인에서 {Math.floor(line.branchPly / 2) + 1}수째 {line.branchPly % 2 === 0 ? '백' : '흑'}의 수부터 갈라집니다.
+            </Text>
           )}
-          <Text style={styles.stepCounter}>
-            {step} / {moves.length} 수
-          </Text>
         </View>
 
-        <ChessBoard
-          board={displayed.board()}
-          selectedSquare={selected}
-          legalTargets={legalTargets}
-          lastMove={lastMove}
-          arrow={wrongPosition || finished || !isUserTurn ? null : expected}
-          flipped={flipped}
-          onSquarePress={handleSquarePress}
-        />
+        <View style={styles.stepCard}>
+          {step > 0 && previous && (
+            <View style={styles.moveBlock}>
+              <View style={styles.moveHeader}>
+                <Text style={styles.moveCaption}>직전 수</Text>
+                <Text style={styles.moveSan}>{moveLabel(step - 1, moves[step - 1])}</Text>
+                {isNotable(previous.quality) && <MoveQualityBadge quality={previous.quality} withLabel />}
+                {formatEval(previous) && <Text style={styles.evalText}>{formatEval(previous)}</Text>}
+              </View>
+              {line.notes?.[step - 1] && <Text style={styles.noteText}>{line.notes[step - 1]}</Text>}
+              {previous.betterSan && (
+                <Text style={styles.betterText}>엔진이 더 좋다고 보는 수: {previous.betterSan}</Text>
+              )}
+            </View>
+          )}
+
+          {finished ? (
+            <Text style={styles.finishedText}>수순 완료! {line.name} {moves.length}수를 모두 따라갔습니다.</Text>
+          ) : (
+            <View style={styles.moveBlock}>
+              <View style={styles.moveHeader}>
+                <Text style={styles.moveCaption}>{isUserTurn ? '내 차례' : '상대 차례'}</Text>
+                <Text style={[styles.moveSan, styles.moveSanNext]}>{moveLabel(step, moves[step])}</Text>
+                {upcoming && isNotable(upcoming.quality) && <MoveQualityBadge quality={upcoming.quality} withLabel />}
+              </View>
+              {line.notes?.[step] && <Text style={styles.noteText}>{line.notes[step]}</Text>}
+              <Text style={styles.stepHint}>
+                {isUserTurn
+                  ? expected
+                    ? `화살표대로 ${expected.from} → ${expected.to}로 옮기거나 '다음'을 누르세요.`
+                    : ''
+                  : '상대의 수입니다. 잠시 후 자동으로 둡니다…'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.boardRow}>
+          <EvalBar cp={barCp} flipped={flipped} />
+          <ChessBoard
+            board={displayed.board()}
+            selectedSquare={selected}
+            legalTargets={legalTargets}
+            lastMove={lastMove}
+            arrow={wrongPosition || finished || !isUserTurn ? null : expected}
+            flipped={flipped}
+            onSquarePress={handleSquarePress}
+          />
+        </View>
+
+        <View style={styles.strip}>
+          {moves.map((san, ply) => {
+            const annotation = annotations[ply];
+            const played = ply < step;
+            const notable = annotation && isNotable(annotation.quality);
+            return (
+              <Pressable
+                key={`${ply}-${san}`}
+                style={[styles.stripMove, played && styles.stripMovePlayed, ply === step && styles.stripMoveCurrent]}
+                onPress={() => jumpTo(ply)}
+              >
+                <Text style={[styles.stripText, played && styles.stripTextPlayed]}>{moveLabel(ply, san)}</Text>
+                {notable && (
+                  <Text style={[styles.stripMark, { color: QUALITY_STYLES[annotation.quality].color }]}>
+                    {QUALITY_STYLES[annotation.quality].symbol}
+                  </Text>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
 
         <View style={styles.navRow}>
           <Pressable style={[styles.navButton, step === 0 && styles.navButtonDisabled]} onPress={goPrevious} disabled={step === 0}>
             <Text style={styles.navButtonText}>◀ 이전</Text>
           </Pressable>
-          <Pressable style={styles.navButton} onPress={restart}>
+          <Pressable style={styles.navButton} onPress={() => jumpTo(0)}>
             <Text style={styles.navButtonText}>처음부터</Text>
           </Pressable>
           <Pressable style={[styles.navButton, finished && styles.navButtonDisabled]} onPress={goNext} disabled={finished}>
@@ -257,6 +352,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
+    paddingBottom: spacing.xxl,
     gap: spacing.md,
   },
   notFound: {
@@ -300,24 +396,141 @@ const styles = StyleSheet.create({
   saveButtonTextActive: {
     color: colors.surface,
   },
+  lineTabs: {
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  lineTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  kindDot: {
+    borderRadius: radius.sm,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  kindDotText: {
+    color: colors.surface,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  lineTabText: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  lineTabTextActive: {
+    color: colors.text,
+    fontWeight: '700',
+  },
+  lineCard: {
+    width: '100%',
+    gap: 2,
+  },
+  lineDescription: {
+    ...typography.body,
+    color: colors.text,
+  },
+  branchNote: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
   stepCard: {
     width: '100%',
     backgroundColor: colors.surfaceAlt,
     borderRadius: radius.md,
     padding: spacing.md,
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
-  stepTitle: {
+  moveBlock: {
+    gap: 2,
+  },
+  moveHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  moveCaption: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  moveSan: {
     ...typography.heading,
+    color: colors.text,
+  },
+  moveSanNext: {
     color: colors.primaryDark,
+  },
+  evalText: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  noteText: {
+    ...typography.body,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  betterText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '700',
   },
   stepHint: {
     ...typography.caption,
     color: colors.textMuted,
   },
-  stepCounter: {
+  finishedText: {
+    ...typography.heading,
+    color: colors.primaryDark,
+  },
+  boardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  strip: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  stripMove: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  stripMovePlayed: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primarySoft,
+  },
+  stripMoveCurrent: {
+    borderColor: colors.primary,
+  },
+  stripText: {
     ...typography.caption,
     color: colors.textMuted,
+  },
+  stripTextPlayed: {
+    color: colors.primaryDark,
+    fontWeight: '700',
+  },
+  stripMark: {
+    fontSize: 11,
+    fontWeight: '800',
   },
   navRow: {
     flexDirection: 'row',

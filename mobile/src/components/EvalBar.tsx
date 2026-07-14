@@ -37,14 +37,14 @@ function whiteShare(cp: number): number {
 }
 
 interface EvalBarProps {
-  evaluation: PositionEvaluation | undefined;
+  /** Centipawns from white's perspective; null draws an empty, centred bar. */
+  cp: number | null;
   /** Flip so the viewer's own colour sits at the bottom, as on the board. */
   flipped?: boolean;
 }
 
-export function EvalBar({ evaluation, flipped = false }: EvalBarProps) {
+export function EvalBar({ cp, flipped = false }: EvalBarProps) {
   const { animations } = useSettings();
-  const cp = whitePerspectiveCp(evaluation);
   const share = cp === null ? 0.5 : whiteShare(cp);
 
   const fill = useRef(new Animated.Value(share)).current;

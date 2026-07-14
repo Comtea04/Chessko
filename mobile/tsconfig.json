@@ -2,5 +2,8 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true
-  }
+  },
+  // scripts/ is Node tooling, not app code, and is checked by scripts/tsconfig.json instead —
+  // keeping it out of here is what stops Node globals leaking into the React Native source.
+  "exclude": ["scripts"]
 }

@@ -4,7 +4,7 @@ import { Chess } from 'chess.js';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ChessBoard } from '../../components/ChessBoard';
-import { EvalBar } from '../../components/EvalBar';
+import { EvalBar, whitePerspectiveCp } from '../../components/EvalBar';
 import { MoveList } from '../../components/MoveList';
 import { useChessGame } from '../../hooks/useChessGame';
 import { analyzeGame, AnalysisApiError, type PositionEvaluation } from '../../api/analysisApi';
@@ -89,7 +89,7 @@ export function GameReviewScreen({ route }: Props) {
         </Text>
 
         <View style={styles.boardRow}>
-          <EvalBar evaluation={evaluations[game.viewIndex + 1]} flipped={playerColor === 'black'} />
+          <EvalBar cp={whitePerspectiveCp(evaluations[game.viewIndex + 1])} flipped={playerColor === 'black'} />
           <ChessBoard
             board={game.board}
             selectedSquare={null}

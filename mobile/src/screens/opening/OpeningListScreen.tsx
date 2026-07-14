@@ -3,7 +3,7 @@ import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'rea
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenHeader } from '../../components/ScreenHeader';
-import { OPENINGS, type Opening } from '../../data/openings';
+import { OPENINGS, plainSan, type Opening } from '../../data/openings';
 import { useSavedOpenings } from '../../storage/useSavedOpenings';
 import { colors, radius, shadow, spacing, typography } from '../../theme';
 import type { OpeningStackParamList } from '../../navigation/types';
@@ -60,7 +60,8 @@ export function OpeningListScreen({ navigation }: Props) {
 }
 
 function OpeningCard({ opening, saved, onPress }: { opening: Opening; saved: boolean; onPress: () => void }) {
-  const preview = opening.moves.slice(0, 4);
+  const preview = opening.lines[0].moves.slice(0, 4).map(plainSan);
+  const punishes = opening.lines.filter((line) => line.kind === 'punish').length;
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
@@ -75,6 +76,10 @@ function OpeningCard({ opening, saved, onPress }: { opening: Opening; saved: boo
       <Text style={styles.openingDesc} numberOfLines={3}>
         {opening.description}
       </Text>
+      <View style={styles.lineTags}>
+        <Text style={styles.lineTag}>라인 {opening.lines.length}개</Text>
+        {punishes > 0 && <Text style={[styles.lineTag, styles.punishTag]}>실수 응징 {punishes}개</Text>}
+      </View>
       <Text style={styles.preview} numberOfLines={1}>
         {preview.join(' ')}…
       </Text>
@@ -161,6 +166,25 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textMuted,
     minHeight: 48,
+  },
+  lineTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  lineTag: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primaryDark,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+  },
+  punishTag: {
+    color: colors.danger,
+    backgroundColor: '#fbe4e3',
   },
   preview: {
     ...typography.caption,

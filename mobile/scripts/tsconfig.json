@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "noEmit": true,
+    // Node's type stripping resolves the import as written, so the .ts extension has to stay.
+    "allowImportingTsExtensions": true
+  },
+  "include": ["*.mts", "../src/data/openings.ts"],
+  "exclude": []
+}
