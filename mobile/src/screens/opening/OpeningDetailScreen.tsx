@@ -10,10 +10,30 @@ import { annotationsFor, evalCp, formatEval, isNotable } from '../../data/openin
 import { getLine, getOpeningById, plainSan, type LineKind, type OpeningLine } from '../../data/openings';
 import { noteFor, type MoveNote } from '../../data/openingNotes';
 import { useSavedOpenings } from '../../storage/useSavedOpenings';
+import { useEngine } from '../../engine/EngineProvider';
+import { assessDeviation, type DeviationAssessment } from '../../engine/deviation';
+import { ExploreMode } from './ExploreMode';
 import { colors, radius, spacing, typography } from '../../theme';
 import type { OpeningStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<OpeningStackParamList, 'OpeningDetail'>;
+
+/** A user move that left the saved line, while the engine judges it and the user decides what to do. */
+type PendingDeviation = {
+  fen: string;
+  from: Square;
+  to: Square;
+  san: string;
+  status: 'checking' | 'playable' | 'mistake';
+  assessment?: DeviationAssessment;
+};
+
+function fmtCp(cp: number | null, mate: number | null): string {
+  if (mate !== null) return `M${Math.abs(mate)}`;
+  if (cp === null) return '—';
+  const pawns = cp / 100;
+  return `${pawns > 0 ? '+' : ''}${pawns.toFixed(1)}`;
+}
 
 const WRONG_MOVE_HOLD_MS = 520;
 const OPPONENT_REPLY_MS = 650;
@@ -82,6 +102,7 @@ function NoteView({ note }: { note: MoveNote | undefined }) {
 export function OpeningDetailScreen({ route, navigation }: Props) {
   const opening = getOpeningById(route.params.openingId);
   const { isSaved, toggleSaved } = useSavedOpenings();
+  const { engine } = useEngine();
 
   const [lineId, setLineId] = useState(opening?.lines[0]?.id ?? '');
   const line: OpeningLine | undefined = opening && getLine(opening, lineId);
@@ -96,6 +117,9 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   const [selected, setSelected] = useState<Square | null>(null);
   // A move that strays from the line is shown for a beat, then taken back.
   const [wrongPosition, setWrongPosition] = useState<{ fen: string; from: Square; to: Square } | null>(null);
+  // Off-book move under engine review + an active free-play session, once the user accepts one.
+  const [deviation, setDeviation] = useState<PendingDeviation | null>(null);
+  const [explore, setExplore] = useState<{ startFen: string } | null>(null);
 
   const flash = useRef(new Animated.Value(0)).current;
   const revertTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -146,7 +170,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
 
   const handleSquarePress = useCallback(
     (square: Square) => {
-      if (!expected || wrongPosition || !isUserTurn) return;
+      if (!expected || wrongPosition || deviation || !isUserTurn) return;
 
       const chess = new Chess(position.fen());
       const piece = chess.get(square);
@@ -173,10 +197,27 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
         return;
       }
 
-      setWrongPosition({ fen: chess.fen(), from: move.from as Square, to: move.to as Square });
-      showWrong();
+      // Off the saved line. Without the engine (offline / not yet loaded) keep the old "wrong" flash;
+      // with it, judge the move — a sound one offers to continue, a bad one shows what it cost.
+      if (!engine) {
+        setWrongPosition({ fen: chess.fen(), from: move.from as Square, to: move.to as Square });
+        showWrong();
+        return;
+      }
+      const fenBefore = position.fen();
+      const fenAfter = chess.fen();
+      setDeviation({ fen: fenAfter, from: move.from as Square, to: move.to as Square, san: move.san, status: 'checking' });
+      assessDeviation(engine, fenBefore, fenAfter)
+        .then((assessment) =>
+          setDeviation((current) =>
+            current && current.fen === fenAfter
+              ? { ...current, status: assessment.playable ? 'playable' : 'mistake', assessment }
+              : current
+          )
+        )
+        .catch(() => setDeviation((current) => (current && current.fen === fenAfter ? null : current)));
     },
-    [expected, wrongPosition, isUserTurn, position, selected, showWrong]
+    [expected, wrongPosition, deviation, isUserTurn, position, selected, showWrong, engine]
   );
 
   const jumpTo = useCallback((target: number) => {
@@ -215,16 +256,43 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
     );
   }
 
+  if (explore && engine) {
+    return <ExploreMode opening={opening} startFen={explore.startFen} engine={engine} onExit={() => setExplore(null)} />;
+  }
+
   const saved = isSaved(opening.id);
   const flipped = opening.sideToLearn === 'b';
 
-  const displayed = wrongPosition ? new Chess(wrongPosition.fen) : position;
+  const shownFen = deviation ? deviation.fen : wrongPosition ? wrongPosition.fen : null;
+  const displayed = shownFen ? new Chess(shownFen) : position;
   const lastPlayed = step > 0 ? position.history({ verbose: true }).at(-1) : undefined;
-  const lastMove = wrongPosition
-    ? { from: wrongPosition.from, to: wrongPosition.to }
-    : lastPlayed
-      ? { from: lastPlayed.from as Square, to: lastPlayed.to as Square }
-      : null;
+  const lastMove = deviation
+    ? { from: deviation.from, to: deviation.to }
+    : wrongPosition
+      ? { from: wrongPosition.from, to: wrongPosition.to }
+      : lastPlayed
+        ? { from: lastPlayed.from as Square, to: lastPlayed.to as Square }
+        : null;
+
+  // Best reply in SAN for the "mistake" message (position is the pre-move position).
+  const bestSan = deviation?.assessment?.bestMove
+    ? position.moves({ verbose: true }).find(
+        (m) =>
+          m.from === deviation.assessment!.bestMove!.slice(0, 2) &&
+          m.to === deviation.assessment!.bestMove!.slice(2, 4)
+      )?.san ?? deviation.assessment.bestMove
+    : null;
+
+  const dismissDeviation = () => {
+    setDeviation(null);
+    setSelected(null);
+  };
+  const continueInExplore = () => {
+    if (!deviation) return;
+    setExplore({ startFen: deviation.fen });
+    setDeviation(null);
+    setSelected(null);
+  };
 
   const legalTargets = selected
     ? displayed.moves({ square: selected, verbose: true }).map((move) => move.to as Square)
@@ -317,6 +385,39 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
           )}
         </View>
 
+        {deviation && (
+          <View style={styles.promptCard}>
+            {deviation.status === 'checking' && <Text style={styles.promptText}>이 수를 확인하는 중…</Text>}
+            {deviation.status === 'playable' && deviation.assessment && (
+              <>
+                <Text style={styles.promptText}>
+                  저장된 라인은 아니지만 둘 만한 수입니다 (평가 {fmtCp(deviation.assessment.evalWhite, deviation.assessment.mateWhite)}). 이 라인으로 계속 두시겠어요?
+                </Text>
+                <View style={styles.promptRow}>
+                  <Pressable style={[styles.promptButton, styles.promptButtonPrimary]} onPress={continueInExplore}>
+                    <Text style={styles.promptButtonTextPrimary}>계속 두기</Text>
+                  </Pressable>
+                  <Pressable style={styles.promptButton} onPress={dismissDeviation}>
+                    <Text style={styles.promptButtonText}>정석대로</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+            {deviation.status === 'mistake' && deviation.assessment && (
+              <>
+                <Text style={styles.promptText}>
+                  부정확한 수입니다. 최선은 {bestSan} · 약 {(deviation.assessment.cpLoss / 100).toFixed(1)}점 손해입니다 (평가 {fmtCp(deviation.assessment.evalWhite, deviation.assessment.mateWhite)}).
+                </Text>
+                <View style={styles.promptRow}>
+                  <Pressable style={[styles.promptButton, styles.promptButtonPrimary]} onPress={dismissDeviation}>
+                    <Text style={styles.promptButtonTextPrimary}>되돌리기</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </View>
+        )}
+
         <View style={styles.boardRow}>
           <EvalBar cp={barCp} flipped={flipped} />
           <ChessBoard
@@ -324,7 +425,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
             selectedSquare={selected}
             legalTargets={legalTargets}
             lastMove={lastMove}
-            arrow={wrongPosition || finished || !isUserTurn ? null : expected}
+            arrow={wrongPosition || deviation || finished || !isUserTurn ? null : expected}
             flipped={flipped}
             onSquarePress={handleSquarePress}
           />
@@ -530,6 +631,42 @@ const styles = StyleSheet.create({
   betterText: {
     ...typography.caption,
     color: colors.primary,
+    fontWeight: '700',
+  },
+  promptCard: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  promptText: {
+    ...typography.body,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  promptRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  promptButton: {
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  promptButtonPrimary: {
+    backgroundColor: colors.primary,
+  },
+  promptButtonText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  promptButtonTextPrimary: {
+    ...typography.caption,
+    color: '#fff',
     fontWeight: '700',
   },
   stepHint: {
