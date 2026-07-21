@@ -9,6 +9,7 @@ import { MoveQualityBadge, QUALITY_STYLES } from '../../components/MoveQualityBa
 import { annotationsFor, evalCp, formatEval, isNotable } from '../../data/openingAnnotations';
 import { getLine, getOpeningById, plainSan, type LineKind, type OpeningLine } from '../../data/openings';
 import { noteFor, type MoveNote } from '../../data/openingNotes';
+import { knownContinuations, lineForContinuation } from '../../data/openingTree';
 import { useSavedOpenings } from '../../storage/useSavedOpenings';
 import { useEngine } from '../../engine/EngineProvider';
 import { assessDeviation, type DeviationAssessment } from '../../engine/deviation';
@@ -140,14 +141,16 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   // The opponent's moves are not something to memorise, so they play themselves. A mistake the line
   // exists to punish is held on screen longer — it is the whole point of watching it be played.
   useEffect(() => {
-    if (finished || isUserTurn || wrongPosition) return;
-    const hasNote = !!(opening && line && noteFor(opening.id, line.id, step));
+    if (!opening || !line || finished || isUserTurn || wrongPosition || deviation) return;
+    // At a branch point on the opponent's side, don't auto-play — let the user choose which reply to see.
+    if (knownContinuations(opening, moves.slice(0, step)).length > 1) return;
+    const hasNote = !!noteFor(opening.id, line.id, step);
     const teaches = hasNote || isNotable(annotations[step]?.quality ?? 'good');
     replyTimer.current = setTimeout(() => setStep((prev) => prev + 1), teaches ? OPPONENT_LESSON_MS : OPPONENT_REPLY_MS);
     return () => {
       if (replyTimer.current) clearTimeout(replyTimer.current);
     };
-  }, [finished, isUserTurn, wrongPosition, step, line, annotations]);
+  }, [opening, finished, isUserTurn, wrongPosition, deviation, step, line, moves, annotations]);
 
   const expected = useMemo(() => {
     const san = moves[step];
@@ -170,7 +173,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
 
   const handleSquarePress = useCallback(
     (square: Square) => {
-      if (!expected || wrongPosition || deviation || !isUserTurn) return;
+      if (!opening || wrongPosition || deviation) return;
 
       const chess = new Chess(position.fen());
       const piece = chess.get(square);
@@ -192,13 +195,27 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
       setSelected(null);
       if (!move) return;
 
-      if (move.san === expected.san) {
+      // The saved line's own next move: just advance.
+      if (expected && move.san === expected.san) {
         setStep((prev) => prev + 1);
         return;
       }
 
-      // Off the saved line. Without the engine (offline / not yet loaded) keep the old "wrong" flash;
-      // with it, judge the move — a sound one offers to continue, a bad one shows what it cost.
+      // A move that enters another known line (either side's choice): switch to it — its name shows at
+      // the top — and keep studying. This is what lets the user find variations by playing, not picking.
+      const switched = lineForContinuation(opening, moves.slice(0, step), move.san);
+      if (switched) {
+        if (replyTimer.current) clearTimeout(replyTimer.current);
+        if (switched.id !== lineId) setLineId(switched.id);
+        setStep((prev) => prev + 1);
+        return;
+      }
+
+      // An unknown move. Judge the user's own moves; ignore an unknown opponent move for now.
+      if (!isUserTurn) return;
+
+      // Without the engine (offline / not yet loaded) keep the old "wrong" flash; with it, judge the
+      // move — a sound one offers to continue, a bad one shows what it cost.
       if (!engine) {
         setWrongPosition({ fen: chess.fen(), from: move.from as Square, to: move.to as Square });
         showWrong();
@@ -217,7 +234,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
         )
         .catch(() => setDeviation((current) => (current && current.fen === fenAfter ? null : current)));
     },
-    [expected, wrongPosition, deviation, isUserTurn, position, selected, showWrong, engine]
+    [opening, expected, wrongPosition, deviation, isUserTurn, position, selected, showWrong, engine, moves, step, lineId]
   );
 
   const jumpTo = useCallback((target: number) => {
@@ -294,6 +311,20 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
     setSelected(null);
   };
 
+  // Play a known continuation (from a branch chip): switch to whichever line it enters, then advance.
+  const playContinuation = (san: string) => {
+    if (replyTimer.current) clearTimeout(replyTimer.current);
+    const switched = lineForContinuation(opening, moves.slice(0, step), san);
+    if (switched && switched.id !== lineId) setLineId(switched.id);
+    setStep((prev) => prev + 1);
+    setSelected(null);
+  };
+
+  // At an opponent branch point, the replies the user can pick between (each names the line it enters).
+  const opponentReplies = !isUserTurn && !finished && !deviation && !wrongPosition
+    ? knownContinuations(opening, moves.slice(0, step))
+    : [];
+
   const legalTargets = selected
     ? displayed.moves({ square: selected, verbose: true }).map((move) => move.to as Square)
     : [];
@@ -340,6 +371,12 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
         </ScrollView>
 
         <View style={styles.lineCard}>
+          <View style={styles.lineCardHeader}>
+            <View style={[styles.kindDot, { backgroundColor: LINE_KINDS[line.kind].color }]}>
+              <Text style={styles.kindDotText}>{LINE_KINDS[line.kind].label}</Text>
+            </View>
+            <Text style={styles.lineCardTitle}>{line.name}</Text>
+          </View>
           <Text style={styles.lineDescription}>{line.description}</Text>
           {line.branchPly > 0 && (
             <Text style={styles.branchNote}>
@@ -384,6 +421,23 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
             </View>
           )}
         </View>
+
+        {opponentReplies.length > 1 && (
+          <View style={styles.repliesCard}>
+            <Text style={styles.repliesLabel}>상대의 응수를 선택해 보세요 (보드에서 직접 둬도 됩니다)</Text>
+            <View style={styles.repliesRow}>
+              {opponentReplies.map((reply) => {
+                const target = lineForContinuation(opening, moves.slice(0, step), reply.san);
+                return (
+                  <Pressable key={reply.san} style={styles.replyChip} onPress={() => playContinuation(reply.san)}>
+                    <Text style={styles.replyChipMove}>{reply.san}</Text>
+                    {target && <Text style={styles.replyChipLine}>{target.name}</Text>}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {deviation && (
           <View style={styles.promptCard}>
@@ -563,11 +617,53 @@ const styles = StyleSheet.create({
   },
   lineCard: {
     width: '100%',
-    gap: 2,
+    gap: spacing.xs,
+  },
+  lineCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  lineCardTitle: {
+    ...typography.heading,
+    color: colors.text,
   },
   lineDescription: {
     ...typography.body,
     color: colors.text,
+  },
+  repliesCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  repliesLabel: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  repliesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  replyChip: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    alignItems: 'center',
+    gap: 2,
+  },
+  replyChipMove: {
+    ...typography.body,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  replyChipLine: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
   branchNote: {
     ...typography.caption,
