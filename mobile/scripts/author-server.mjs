@@ -18,6 +18,7 @@ import { OPENINGS, lineKey, plainSan } from '../src/data/openings.ts';
 
 const PORT = 4599;
 const NOTES_PATH = fileURLToPath(new URL('../src/data/openingNotes.json', import.meta.url));
+const BRANCHES_PATH = fileURLToPath(new URL('../src/data/openingBranches.json', import.meta.url));
 const HTML_PATH = fileURLToPath(new URL('./author/index.html', import.meta.url));
 
 /** Position (FEN) after each half-move of a line, so the board can show the move being annotated. */
@@ -31,16 +32,29 @@ function fensFor(sans) {
   return fens;
 }
 
-function buildData(notes) {
-  const openings = OPENINGS.map((o) => ({
-    id: o.id,
-    name: o.name,
-    sideToLearn: o.sideToLearn,
-    lines: o.lines.map((l) => {
-      const moves = l.moves.map(plainSan);
-      return { id: l.id, name: l.name, kind: l.kind, key: lineKey(o.id, l.id), moves, fens: fensFor(moves) };
-    }),
-  }));
+function buildData(notes, branches) {
+  const openings = OPENINGS.map((o) => {
+    const curatedIds = new Set(o.lines.map((l) => l.id));
+    const lines = [...o.lines, ...(branches[o.id] ?? [])];
+    return {
+      id: o.id,
+      name: o.name,
+      sideToLearn: o.sideToLearn,
+      lines: lines.map((l) => {
+        const moves = l.moves.map(plainSan);
+        return {
+          id: l.id,
+          name: l.name,
+          kind: l.kind,
+          branchPly: l.branchPly ?? 0,
+          key: lineKey(o.id, l.id),
+          moves,
+          fens: fensFor(moves),
+          authored: !curatedIds.has(l.id),
+        };
+      }),
+    };
+  });
   return { openings, notes };
 }
 
@@ -74,6 +88,32 @@ async function readNotes() {
   }
 }
 
+async function readBranches() {
+  try {
+    return JSON.parse(await readFile(BRANCHES_PATH, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+/** Write branches in the openings' own order so the file stays diff-stable. */
+async function writeBranches(branches) {
+  const ordered = {};
+  for (const o of OPENINGS) {
+    if (branches[o.id] && branches[o.id].length) ordered[o.id] = branches[o.id];
+  }
+  await writeFile(BRANCHES_PATH, JSON.stringify(ordered, null, 2) + '\n');
+}
+
+/** A stable, unique-within-opening id from the branch's diverging move, e.g. "bg4-9". */
+function branchId(opening, existing, moves, branchPly) {
+  const base = (moves[branchPly] ?? moves.at(-1) ?? 'branch').toLowerCase().replace(/[^a-z0-9]/g, '') || 'branch';
+  const taken = new Set([...opening.lines.map((l) => l.id), ...existing.map((b) => b.id)]);
+  let id = `${base}-${branchPly}`;
+  for (let n = 2; taken.has(id); n++) id = `${base}-${branchPly}-${n}`;
+  return id;
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let raw = '';
@@ -98,7 +138,60 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && req.url === '/api/data') {
-      sendJson(res, 200, buildData(await readNotes()));
+      sendJson(res, 200, buildData(await readNotes(), await readBranches()));
+      return;
+    }
+
+    // Replay a move sequence and report the position + its legal moves, so the branch editor's board
+    // can make free (legal) moves without shipping chess.js to the page.
+    if (req.method === 'POST' && req.url === '/api/position') {
+      const { moves } = JSON.parse(await readBody(req));
+      const chess = new Chess();
+      try {
+        for (const m of moves ?? []) chess.move(m);
+      } catch (err) {
+        sendJson(res, 400, { error: `수순 오류: ${err?.message ?? err}` });
+        return;
+      }
+      const legal = chess.moves({ verbose: true }).map((m) => ({ from: m.from, to: m.to, san: m.san, promotion: m.promotion }));
+      sendJson(res, 200, { ok: true, fen: chess.fen(), turn: chess.turn(), gameOver: chess.isGameOver(), moves: legal });
+      return;
+    }
+
+    // Save a new opponent-reply branch into openingBranches.json (validated for legality first).
+    if (req.method === 'POST' && req.url === '/api/branch') {
+      const { openingId, name, kind, branchPly, moves } = JSON.parse(await readBody(req));
+      if (!openingId || !name || !Array.isArray(moves) || moves.length === 0) {
+        sendJson(res, 400, { error: 'openingId, name, moves 필요' });
+        return;
+      }
+      const opening = OPENINGS.find((o) => o.id === openingId);
+      if (!opening) {
+        sendJson(res, 404, { error: '알 수 없는 오프닝' });
+        return;
+      }
+      const chess = new Chess();
+      try {
+        for (const m of moves) chess.move(m);
+      } catch (err) {
+        sendJson(res, 400, { error: `불법 수순: ${err?.message ?? err}` });
+        return;
+      }
+      const ply = Number(branchPly) || 0;
+      const branches = await readBranches();
+      const list = branches[openingId] ?? [];
+      const branch = {
+        id: branchId(opening, list, moves, ply),
+        name,
+        kind: kind === 'punish' ? 'punish' : 'variation',
+        branchPly: ply,
+        description: '',
+        moves,
+      };
+      list.push(branch);
+      branches[openingId] = list;
+      await writeBranches(branches);
+      sendJson(res, 200, { ok: true, branch });
       return;
     }
 
@@ -130,5 +223,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n  오프닝 설명 편집기 → http://localhost:${PORT}\n  저장 대상: src/data/openingNotes.json  (Ctrl+C로 종료)\n`);
+  console.log(`\n  오프닝 편집기 → http://localhost:${PORT}\n  저장 대상: src/data/openingNotes.json, openingBranches.json  (Ctrl+C로 종료)\n`);
 });

@@ -5,7 +5,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ChessBoard } from '../../components/ChessBoard';
 import { ScreenHeader } from '../../components/ScreenHeader';
-import { OPENINGS, plainSan, type Opening, type OpeningLine } from '../../data/openings';
+import { plainSan, type Opening, type OpeningLine } from '../../data/openings';
+import { OPENINGS } from '../../data/openingsRuntime';
 import { useSavedOpenings } from '../../storage/useSavedOpenings';
 import { colors, radius, spacing, typography } from '../../theme';
 import type { PracticeStackParamList } from '../../navigation/types';

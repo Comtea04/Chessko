@@ -18,6 +18,9 @@
   .sq.l { background:var(--light); } .sq.d { background:var(--dark); }
   .pc.w { color:#fff; text-shadow:0 0 1px #333, 0 1px 2px rgba(0,0,0,.4); }
   .pc.b { color:#111; }
+  .sq.sel { box-shadow: inset 0 0 0 4px var(--primary); }
+  .sq.tgt { box-shadow: inset 0 0 0 3px rgba(52,82,217,.55); cursor:pointer; }
+  .sq { cursor:pointer; }
   .nav { display:flex; gap:8px; justify-content:center; margin-top:12px; }
   button { padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:14px; cursor:pointer; }
   button.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
@@ -43,6 +46,7 @@
   <select id="opening"></select>
   <select id="line"></select>
   <span id="status"></span>
+  <button id="newBranch" style="margin-left:auto">＋ 새 갈래 추가</button>
 </header>
 <main>
   <div class="card">
@@ -54,7 +58,7 @@
     </div>
     <div class="moves" id="moves"></div>
   </div>
-  <div class="card">
+  <div class="card" id="editorPanel">
     <div class="row" style="justify-content:space-between">
       <strong id="moveTitle">—</strong>
       <a class="ext" id="lichess" target="_blank" rel="noreferrer">Lichess 분석에서 열기 ↗</a>
@@ -70,6 +74,21 @@
     </div>
     <p class="muted" style="margin-top:16px">저장하면 <code>src/data/openingNotes.json</code>에 바로 기록됩니다. 남의 스터디 <b>텍스트를 복사하지 말고</b>, 링크로만 다세요.</p>
   </div>
+  <div class="card" id="branchPanel" style="display:none">
+    <div class="row" style="justify-content:space-between">
+      <strong>새 갈래(상대 응수) 추가</strong>
+      <button id="branchCancel">취소</button>
+    </div>
+    <p class="muted" id="branchFrom"></p>
+    <p><b>추가 수순:</b> <span id="branchSeq" class="muted">—</span></p>
+    <div class="row"><button id="branchUndo">↶ 마지막 수 취소</button></div>
+    <label>갈래 이름</label>
+    <input id="branchName" placeholder="예: 교환 · 5...Bg4" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit" />
+    <label>종류</label>
+    <select id="branchKind"><option value="variation">변형</option><option value="punish">응징</option></select>
+    <div class="row" style="margin-top:12px"><button class="primary" id="branchSave">갈래 저장</button><span id="branchMsg" class="muted"></span></div>
+    <p class="muted" style="margin-top:12px">보드에서 상대(및 이후) 수를 두어 갈래를 만든 뒤 저장하세요. 저장하면 앱 트리에 즉시 나타나고, 위에서 그 라인을 골라 설명을 답니다.</p>
+  </div>
 </main>
 <script>
 const GLYPH = { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' };
@@ -82,34 +101,35 @@ const $ = (id) => document.getElementById(id);
 function line() { return data.openings[oi].lines[li]; }
 function flipped() { return data.openings[oi].sideToLearn === 'b'; }
 
-function renderBoard(fen) {
+const FILES = ['a','b','c','d','e','f','g','h'];
+function renderBoard(fen, opts) {
+  opts = opts || {};
   const board = $('board'); board.innerHTML = '';
-  const rows = fen.split(' ')[0].split('/');
-  const grid = [];
-  for (const r of rows) {
+  const rows = fen.split(' ')[0].split('/'); // rows[0] = rank 8
+  const grid = rows.map((r) => {
     const row = [];
-    for (const ch of r) {
-      if (/\d/.test(ch)) for (let i=0;i<+ch;i++) row.push(null);
-      else row.push(ch);
-    }
-    grid.push(row);
-  }
-  const rankOrder = flipped() ? [...grid].reverse() : grid;
-  rankOrder.forEach((row, ri) => {
-    const cells = flipped() ? [...row].reverse() : row;
-    cells.forEach((pc, ci) => {
+    for (const ch of r) { if (/\d/.test(ch)) for (let i=0;i<+ch;i++) row.push(null); else row.push(ch); }
+    return row;
+  });
+  const order = flipped() ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
+  for (const ri of order) {
+    for (const ci of order) {
+      const pc = grid[ri][ci];
+      const square = FILES[ci] + (8 - ri);
       const sq = document.createElement('div');
-      const dark = (ri + ci) % 2 === 1;
-      sq.className = 'sq ' + (dark ? 'd' : 'l');
+      sq.className = 'sq ' + ((ri + ci) % 2 === 1 ? 'd' : 'l');
+      if (opts.selected === square) sq.classList.add('sel');
+      if (opts.targets && opts.targets.includes(square)) sq.classList.add('tgt');
       if (pc) {
         const span = document.createElement('span');
         span.className = 'pc ' + (pc === pc.toUpperCase() ? 'w' : 'b');
         span.textContent = GLYPH[pc.toLowerCase()];
         sq.appendChild(span);
       }
+      if (opts.onSquare) sq.onclick = () => opts.onSquare(square);
       board.appendChild(sq);
-    });
-  });
+    }
+  }
 }
 
 function moveLabel(i, san) {
@@ -191,12 +211,76 @@ async function save() {
   }
 }
 
-$('opening').onchange = e => { oi=+e.target.value; li=0; ply=0; fillSelects(); renderEditor(); };
-$('line').onchange = e => { li=+e.target.value; ply=0; renderEditor(); };
+// ---- 새 갈래(상대 응수) 추가 모드 ----
+let branch = null; // { path:[], newMoves:[], selected, fen, legal:[] }
+
+function closeBranch() { branch = null; $('branchPanel').style.display = 'none'; $('editorPanel').style.display = ''; }
+
+function enterBranch() {
+  const l = line();
+  branch = { path: l.moves.slice(0, ply + 1), newMoves: [], selected: null, fen: '', legal: [] };
+  $('editorPanel').style.display = 'none';
+  $('branchPanel').style.display = '';
+  $('branchName').value = ''; $('branchMsg').textContent = '';
+  $('branchFrom').textContent = `분기 지점: ${branch.path.length}수 후 — ${branch.path.join(' ')}`;
+  loadBranchPosition();
+}
+
+async function loadBranchPosition() {
+  const moves = [...branch.path, ...branch.newMoves];
+  const res = await (await fetch('/api/position', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ moves }) })).json();
+  if (!res.ok) { $('branchMsg').textContent = res.error || '오류'; return; }
+  branch.fen = res.fen; branch.legal = res.moves; branch.selected = null;
+  renderBranch();
+}
+
+function renderBranch() {
+  const targets = branch.selected ? branch.legal.filter(m => m.from === branch.selected).map(m => m.to) : [];
+  renderBoard(branch.fen, { onSquare: onBranchSquare, selected: branch.selected, targets });
+  $('branchSeq').textContent = branch.newMoves.length
+    ? branch.newMoves.map((s, i) => moveLabel(branch.path.length + i, s)).join(' ')
+    : '—';
+}
+
+function onBranchSquare(square) {
+  if (!branch) return;
+  if (branch.selected) {
+    if (square === branch.selected) { branch.selected = null; return renderBranch(); }
+    const mv = branch.legal.find(m => m.from === branch.selected && m.to === square);
+    if (mv) { branch.newMoves.push(mv.san); return loadBranchPosition(); }
+    if (branch.legal.some(m => m.from === square)) { branch.selected = square; return renderBranch(); }
+    branch.selected = null; return renderBranch();
+  }
+  if (branch.legal.some(m => m.from === square)) { branch.selected = square; renderBranch(); }
+}
+
+async function saveBranch() {
+  if (!branch || branch.newMoves.length === 0) { $('branchMsg').textContent = '수를 최소 1개 두세요'; return; }
+  const name = $('branchName').value.trim();
+  if (!name) { $('branchMsg').textContent = '이름을 입력하세요'; return; }
+  const body = { openingId: data.openings[oi].id, name, kind: $('branchKind').value, branchPly: branch.path.length, moves: [...branch.path, ...branch.newMoves] };
+  const res = await (await fetch('/api/branch', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })).json();
+  if (!res.ok) { $('branchMsg').textContent = res.error || '저장 실패'; return; }
+  const savedId = res.branch.id;
+  data = await (await fetch('/api/data')).json();
+  notes = data.notes || {};
+  closeBranch();
+  fillSelects();
+  const idx = data.openings[oi].lines.findIndex(l => l.id === savedId);
+  if (idx >= 0) { li = idx; ply = 0; $('line').value = li; }
+  renderEditor();
+}
+
+$('opening').onchange = e => { closeBranch(); oi=+e.target.value; li=0; ply=0; fillSelects(); renderEditor(); };
+$('line').onchange = e => { closeBranch(); li=+e.target.value; ply=0; renderEditor(); };
 $('prev').onclick = () => { if(ply>0){ply--; renderEditor();} };
 $('next').onclick = () => { if(ply<line().moves.length-1){ply++; renderEditor();} };
 $('addRef').onclick = () => { editRefs.push({label:'',url:'',kind:'explorer'}); renderRefs(editRefs); };
 $('save').onclick = save;
+$('newBranch').onclick = enterBranch;
+$('branchCancel').onclick = closeBranch;
+$('branchUndo').onclick = () => { if (branch && branch.newMoves.length) { branch.newMoves.pop(); loadBranchPosition(); } };
+$('branchSave').onclick = saveBranch;
 
 (async () => {
   data = await (await fetch('/api/data')).json();
