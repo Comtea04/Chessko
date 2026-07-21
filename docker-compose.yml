@@ -1,0 +1,62 @@
+# Chessko online backend: the Java API (Stockfish analysis, commentary) + the Python
+# vision service (screenshot -> FEN). The mobile app's offline study features don't touch
+# any of this; only live analysis, vision import, and game review call in here.
+#
+#   docker compose up --build          # run the two services, API on :8080
+#   docker compose --profile tls up -d # additionally front it with Caddy (auto-HTTPS)
+#
+# Secrets/optional config are read from backend/.env (OPENAI_API_KEY, SUPABASE_*, ...).
+
+services:
+  vision:
+    build: ./vision
+    restart: unless-stopped
+    volumes:
+      - vision-data:/app/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      vision:
+        condition: service_healthy
+    env_file:
+      - backend/.env
+    environment:
+      # Container-network wiring — these override anything in backend/.env.
+      VISION_SERVICE_URL: http://vision:8000
+      STOCKFISH_PATH: /usr/games/stockfish
+    ports:
+      - "8080:8080"
+
+  # `--profile tls` only. Needs CADDY_DOMAIN set (shell env or a root .env) and a DNS
+  # record pointing at this host; Caddy then obtains and renews a Let's Encrypt cert.
+  caddy:
+    image: caddy:2
+    profiles: ["tls"]
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Placeholder default so non-tls runs validate; override for the tls profile.
+      CADDY_DOMAIN: ${CADDY_DOMAIN:-api.example.com}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  vision-data:
+  caddy-data:
+  caddy-config:

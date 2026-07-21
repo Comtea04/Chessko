@@ -60,36 +60,36 @@ Lotus Chess 스타일의 하단 3탭 구조입니다. 학습 데이터(저장한
 
 ## 로컬 실행
 
-세 구성요소는 `vision` → `backend` → `mobile` 순서로 띄우는 것을 권장합니다. 각자 다른 터미널에서 실행하세요. 폴더별 상세 설정은 각 README를 참고하세요.
+백엔드 두 서비스(`backend` + `vision`)는 **Docker로 한 번에** 띄우는 것을 권장하고, 모바일은 Expo로 따로 실행합니다. 컨테이너를 쓰지 않으려면 아래 "Docker 없이 직접 실행"을 따르세요.
 
 ### 사전 준비
 
-* **Java 21** (백엔드) — `JAVA_HOME`을 21로 맞추세요.
-* **Stockfish 실행 파일** — 백엔드가 시작 시 필수로 요구합니다. 없으면 앱이 아예 뜨지 않습니다.
-* **Python 3.10+** (Vision).
-* **Node.js + npm** (모바일, Expo SDK 57).
+* **Docker + Docker Compose** — 권장 실행 경로. 이 경우 Java·Stockfish·Python을 따로 설치할 필요가 없습니다.
+* **Node.js + npm** (모바일, Expo SDK 57) — 컨테이너화 대상이 아니므로 항상 필요합니다.
+* (직접 실행 시에만) **Java 21** · **Stockfish 실행 파일** · **Python 3.10+**.
 * (선택) **OpenAI API 키**, **Supabase 프로젝트** — RAG 해설용. 없어도 나머지 기능은 정상 동작합니다.
 
-### 1) Vision (`vision/`)
+### 1) 백엔드 + Vision — Docker (권장)
 
 ```bash
-cd vision
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+docker compose up --build      # 백엔드 API가 :8080, 내부 네트워크에서 vision:8000 호출
 ```
 
-첫 사용 전 테마 등록이 필요합니다 — [vision/README.md](vision/README.md) 참고.
+`backend/.env`의 값(비밀키 등)을 그대로 읽습니다. Vision의 등록 테마는 볼륨에 영속됩니다. 실행 상세와 HTTPS 배포(Caddy)는 [deploy/README.md](deploy/README.md)를 참고하세요.
 
-### 2) 백엔드 (`backend/`)
+### 1-B) 백엔드 + Vision — Docker 없이 직접 실행
+
+`vision` → `backend` 순서로, 각자 다른 터미널에서 실행합니다.
 
 ```bash
-cd backend
-./run.sh          # .env를 읽어 export한 뒤 ./gradlew bootRun
+# Vision (vision/) — 첫 사용 전 테마 등록 필요, vision/README.md 참고
+cd vision && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8000
+
+# 백엔드 (backend/) — .env에 최소 STOCKFISH_PATH 필요, backend/README.md 참고
+cd backend && ./run.sh          # .env를 읽어 export한 뒤 ./gradlew bootRun
 ```
 
-`backend/.env`에 최소 `STOCKFISH_PATH`가 필요합니다. 자세한 환경변수는 [backend/README.md](backend/README.md) 참고.
-
-### 3) 모바일 (`mobile/`)
+### 2) 모바일 (`mobile/`)
 
 ```bash
 cd mobile
@@ -130,6 +130,7 @@ cd mobile  && npm run typecheck       # 앱 + scripts 타입 체크
   * 마이페이지: chess.com 공개 API 연동, 최근 대국 목록, 대국 복기(PGN 재생 + 이밸류에이션 바), 학습 기록, 설정.
   * 백엔드: 대국 전체를 한 번에 평가하는 `/api/v1/analysis/game` 추가(엔진 풀에 병렬 팬아웃, 포지션당 200ms).
   * 화면 전환 모핑과 기물 이동 애니메이션은 설정에서 끌 수 있습니다.
+* **배포 준비 — 컨테이너화** — `backend`(런타임 이미지에 Stockfish 포함)와 `vision`을 `docker compose`로 함께 띄우도록 묶었습니다. HTTPS는 `tls` 프로파일의 Caddy가 처리합니다([deploy/README.md](deploy/README.md)). 남은 것은 VPS/도메인에 실제 배포와 앱 스토어 빌드(EAS)입니다.
 * **다음 단계** — Freemium/결제(인앱 구독, 호출 횟수 제어).
 
 ### 알려진 한계

@@ -19,7 +19,7 @@ cd backend
 ./gradlew test      # 테스트
 ```
 
-`run.sh`는 `.env`가 있으면 `set -a`로 통째로 export한 뒤 `bootRun`을 호출하는 얇은 래퍼입니다.
+`run.sh`는 `.env`가 있으면 `set -a`로 통째로 export한 뒤 `bootRun`을 호출하는 얇은 래퍼입니다. 로컬에 Java·Stockfish를 설치하고 싶지 않다면 저장소 루트의 `docker compose up`으로 `vision`과 함께 컨테이너로 띄울 수 있습니다 — 런타임 이미지가 Stockfish를 포함하고, `STOCKFISH_PATH`·`VISION_SERVICE_URL`은 compose가 주입합니다([deploy/README.md](../deploy/README.md)).
 
 ### 환경변수
 
@@ -44,6 +44,7 @@ cd backend
 | 메서드 | 경로 | 설명 |
 | --- | --- | --- |
 | `POST` | `/api/v1/analysis` | FEN → 평가값 + 최선의 수 1~3순위 |
+| `POST` | `/api/v1/analysis/game` | 대국 전체 포지션을 한 요청으로 평가 (엔진 풀 병렬 팬아웃, 이밸류에이션 바/그래프용) |
 | `POST` | `/api/v1/analysis/commentary` | 위 결과 + RAG 한국어 해설 |
 | `POST` | `/api/v1/vision/themes/{themeId}/enroll` | 시작 위치 스크린샷으로 기물 테마 등록 (multipart) |
 | `POST` | `/api/v1/vision/scan` | 스크린샷 → FEN (multipart) |

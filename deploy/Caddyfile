@@ -1,0 +1,5 @@
+# Fronts the Java API with automatic HTTPS. CADDY_DOMAIN is injected by docker-compose
+# (the `tls` profile). Point your DNS A/AAAA record at this host first.
+{$CADDY_DOMAIN} {
+	reverse_proxy backend:8080
+}
