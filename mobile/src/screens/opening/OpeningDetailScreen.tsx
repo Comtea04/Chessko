@@ -39,8 +39,6 @@ function fmtCp(cp: number | null, mate: number | null): string {
 
 const WRONG_MOVE_HOLD_MS = 520;
 const OPPONENT_REPLY_MS = 650;
-/** A move that carries a lesson — a blunder, a note — needs time to be read before it lands. */
-const OPPONENT_LESSON_MS = 1900;
 
 const LINE_KINDS: Record<LineKind, { label: string; color: string }> = {
   main: { label: '메인', color: colors.primary },
@@ -159,19 +157,18 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   const finished = step >= moves.length;
   const isUserTurn = !finished && step % 2 === userParity;
 
-  // The opponent's moves are not something to memorise, so they play themselves. A mistake the line
-  // exists to punish is held on screen longer — it is the whole point of watching it be played.
+  // The opponent's moves aren't memorised, so they normally play themselves. But hold when there's
+  // something to read: a branch to choose, or a comment on the move just played — otherwise the reply
+  // lands a second later, right over the comment explaining the move that led to it.
   useEffect(() => {
     if (!opening || !line || finished || isUserTurn || wrongPosition || deviation) return;
-    // At a branch point on the opponent's side, don't auto-play — let the user choose which reply to see.
     if (knownContinuations(opening, moves.slice(0, step)).length > 1) return;
-    const hasNote = !!noteFor(opening, line, step);
-    const teaches = hasNote || isNotable(annotations[step]?.quality ?? 'good');
-    replyTimer.current = setTimeout(() => setStep((prev) => prev + 1), teaches ? OPPONENT_LESSON_MS : OPPONENT_REPLY_MS);
+    if (step > 0 && noteFor(opening, line, step - 1)) return;
+    replyTimer.current = setTimeout(() => setStep((prev) => prev + 1), OPPONENT_REPLY_MS);
     return () => {
       if (replyTimer.current) clearTimeout(replyTimer.current);
     };
-  }, [opening, finished, isUserTurn, wrongPosition, deviation, step, line, moves, annotations]);
+  }, [opening, finished, isUserTurn, wrongPosition, deviation, step, line, moves]);
 
   const expected = useMemo(() => {
     const san = moves[step];
@@ -345,6 +342,11 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
     ? knownContinuations(opening, moves.slice(0, step))
     : [];
 
+  // Opponent's turn, holding for the user to read a comment before advancing (matches the effect).
+  const awaitingAdvance =
+    !isUserTurn && !finished && !wrongPosition && !deviation && opponentReplies.length <= 1 &&
+    step > 0 && !!noteFor(opening, line, step - 1);
+
   const legalTargets = selected
     ? displayed.moves({ square: selected, verbose: true }).map((move) => move.to as Square)
     : [];
@@ -425,6 +427,9 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
 
           {finished && (
             <Text style={styles.finishedText}>수순 완료! {line.name} {moves.length}수를 모두 따라갔습니다.</Text>
+          )}
+          {awaitingAdvance && (
+            <Text style={styles.opponentHint}>상대 차례 — 다음 ▶ 을 눌러 응수를 봅니다</Text>
           )}
         </View>
 
@@ -577,6 +582,11 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textMuted,
     width: '100%',
+  },
+  opponentHint: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '600',
   },
   saveButton: {
     borderWidth: 1,
