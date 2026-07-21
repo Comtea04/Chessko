@@ -165,7 +165,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
     if (!opening || !line || finished || isUserTurn || wrongPosition || deviation) return;
     // At a branch point on the opponent's side, don't auto-play — let the user choose which reply to see.
     if (knownContinuations(opening, moves.slice(0, step)).length > 1) return;
-    const hasNote = !!noteFor(opening.id, line.id, step);
+    const hasNote = !!noteFor(opening, line, step);
     const teaches = hasNote || isNotable(annotations[step]?.quality ?? 'good');
     replyTimer.current = setTimeout(() => setStep((prev) => prev + 1), teaches ? OPPONENT_LESSON_MS : OPPONENT_REPLY_MS);
     return () => {
@@ -356,7 +356,9 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.description}>{opening.description}</Text>
+        <Text style={styles.breadcrumb} numberOfLines={1}>
+          {opening.category} › {opening.name} › {line.name}
+        </Text>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lineTabs}>
           {opening.lines.filter((candidate) => !candidate.authored).map((candidate) => {
@@ -414,17 +416,15 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
                 {isNotable(previous.quality) && <MoveQualityBadge quality={previous.quality} withLabel />}
                 {formatEval(previous) && <Text style={styles.evalText}>{formatEval(previous)}</Text>}
               </View>
-              <NoteView note={noteFor(opening.id, line.id, step - 1)} />
+              <NoteView note={noteFor(opening, line, step - 1)} />
               {previous.betterSan && (
                 <Text style={styles.betterText}>엔진이 더 좋다고 보는 수: {previous.betterSan}</Text>
               )}
             </View>
           )}
 
-          {finished ? (
+          {finished && (
             <Text style={styles.finishedText}>수순 완료! {line.name} {moves.length}수를 모두 따라갔습니다.</Text>
-          ) : (
-            <NoteView note={noteFor(opening.id, line.id, step)} />
           )}
         </View>
 
@@ -570,6 +570,11 @@ const styles = StyleSheet.create({
   },
   description: {
     ...typography.body,
+    color: colors.textMuted,
+    width: '100%',
+  },
+  breadcrumb: {
+    ...typography.caption,
     color: colors.textMuted,
     width: '100%',
   },
