@@ -331,7 +331,6 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
     : [];
 
   const previous = step > 0 ? annotations[step - 1] : undefined;
-  const upcoming = finished ? undefined : annotations[step];
   // The start position is dead equal; every later bar reading comes from the move that produced it.
   const barCp = step === 0 ? 0 : evalCp(previous);
 
@@ -386,6 +385,19 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
           )}
         </View>
 
+        <View style={styles.boardRow}>
+          <EvalBar cp={barCp} flipped={flipped} />
+          <ChessBoard
+            board={displayed.board()}
+            selectedSquare={selected}
+            legalTargets={legalTargets}
+            lastMove={lastMove}
+            arrow={wrongPosition || deviation || finished || !isUserTurn ? null : expected}
+            flipped={flipped}
+            onSquarePress={handleSquarePress}
+          />
+        </View>
+
         <View style={styles.stepCard}>
           {step > 0 && previous && (
             <View style={styles.moveBlock}>
@@ -405,21 +417,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
           {finished ? (
             <Text style={styles.finishedText}>수순 완료! {line.name} {moves.length}수를 모두 따라갔습니다.</Text>
           ) : (
-            <View style={styles.moveBlock}>
-              <View style={styles.moveHeader}>
-                <Text style={styles.moveCaption}>{isUserTurn ? '내 차례' : '상대 차례'}</Text>
-                <Text style={[styles.moveSan, styles.moveSanNext]}>{moveLabel(step, moves[step])}</Text>
-                {upcoming && isNotable(upcoming.quality) && <MoveQualityBadge quality={upcoming.quality} withLabel />}
-              </View>
-              <NoteView note={noteFor(opening.id, line.id, step)} />
-              <Text style={styles.stepHint}>
-                {isUserTurn
-                  ? expected
-                    ? `화살표대로 ${expected.from} → ${expected.to}로 옮기거나 '다음'을 누르세요.`
-                    : ''
-                  : '상대의 수입니다. 잠시 후 자동으로 둡니다…'}
-              </Text>
-            </View>
+            <NoteView note={noteFor(opening.id, line.id, step)} />
           )}
         </View>
 
@@ -472,19 +470,6 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
             )}
           </View>
         )}
-
-        <View style={styles.boardRow}>
-          <EvalBar cp={barCp} flipped={flipped} />
-          <ChessBoard
-            board={displayed.board()}
-            selectedSquare={selected}
-            legalTargets={legalTargets}
-            lastMove={lastMove}
-            arrow={wrongPosition || deviation || finished || !isUserTurn ? null : expected}
-            flipped={flipped}
-            onSquarePress={handleSquarePress}
-          />
-        </View>
 
         <View style={styles.strip}>
           {moves.map((san, ply) => {
