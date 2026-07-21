@@ -32,6 +32,9 @@ export interface OpeningLine {
    * point of the line.
    */
   moves: string[];
+  /** Set on branches merged in from `openingBranches.json` — kept out of the line list so it doesn't
+   *  grow unbounded; these surface contextually (as opponent-reply choices), by being played into. */
+  authored?: boolean;
 }
 
 export interface Opening {

@@ -353,7 +353,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
         <Text style={styles.description}>{opening.description}</Text>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lineTabs}>
-          {opening.lines.map((candidate) => {
+          {opening.lines.filter((candidate) => !candidate.authored).map((candidate) => {
             const active = candidate.id === line.id;
             const kind = LINE_KINDS[candidate.kind];
             return (

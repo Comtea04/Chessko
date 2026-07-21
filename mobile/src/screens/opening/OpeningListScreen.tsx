@@ -3,8 +3,7 @@ import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'rea
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenHeader } from '../../components/ScreenHeader';
-import { plainSan, type Opening } from '../../data/openings';
-import { OPENINGS } from '../../data/openingsRuntime';
+import { OPENINGS, plainSan, type Opening } from '../../data/openings';
 import { useSavedOpenings } from '../../storage/useSavedOpenings';
 import { colors, radius, shadow, spacing, typography } from '../../theme';
 import type { OpeningStackParamList } from '../../navigation/types';

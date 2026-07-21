@@ -14,7 +14,10 @@ const BRANCHES = branchesData as Record<string, OpeningLine[]>;
 
 export const OPENINGS: Opening[] = CURATED.map((opening) => {
   const extra = BRANCHES[opening.id];
-  return extra && extra.length > 0 ? { ...opening, lines: [...opening.lines, ...extra] } : opening;
+  if (!extra || extra.length === 0) return opening;
+  // Tag branches so the line list can leave them out; they're found by playing into them, not picking.
+  const branches = extra.map((line) => ({ ...line, authored: true }));
+  return { ...opening, lines: [...opening.lines, ...branches] };
 });
 
 const BY_ID = new Map(OPENINGS.map((opening) => [opening.id, opening]));
