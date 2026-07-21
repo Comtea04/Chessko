@@ -72,6 +72,7 @@
       <button class="primary" id="save">저장</button>
       <span id="saveMsg" class="muted"></span>
     </div>
+    <div class="row" style="margin-top:12px"><button id="deleteBranch" style="display:none;border-color:#d9433f;color:#d9433f">이 갈래 삭제</button></div>
     <p class="muted" style="margin-top:16px">저장하면 <code>src/data/openingNotes.json</code>에 바로 기록됩니다. 남의 스터디 <b>텍스트를 복사하지 말고</b>, 링크로만 다세요.</p>
   </div>
   <div class="card" id="branchPanel" style="display:none">
@@ -173,6 +174,7 @@ function renderEditor() {
   editRefs = (note.refs || []).map(r => ({...r}));
   renderRefs(editRefs);
   $('saveMsg').textContent = '';
+  $('deleteBranch').style.display = l.authored ? '' : 'none';
   // moves strip
   const strip = $('moves'); strip.innerHTML='';
   l.moves.forEach((m, i) => {
@@ -281,6 +283,18 @@ $('newBranch').onclick = enterBranch;
 $('branchCancel').onclick = closeBranch;
 $('branchUndo').onclick = () => { if (branch && branch.newMoves.length) { branch.newMoves.pop(); loadBranchPosition(); } };
 $('branchSave').onclick = saveBranch;
+$('deleteBranch').onclick = async () => {
+  const l = line();
+  if (!l.authored) return;
+  if (!confirm(`갈래 "${l.name}"를 삭제할까요? (설명도 함께 지워집니다)`)) return;
+  const res = await (await fetch('/api/branch/delete', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ openingId: data.openings[oi].id, id: l.id }) })).json();
+  if (!res.ok) { $('saveMsg').textContent = '삭제 실패: ' + (res.error||''); return; }
+  data = await (await fetch('/api/data')).json();
+  notes = data.notes || {};
+  li = 0; ply = 0;
+  fillSelects();
+  renderEditor();
+};
 
 (async () => {
   data = await (await fetch('/api/data')).json();

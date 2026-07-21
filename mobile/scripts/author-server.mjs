@@ -58,11 +58,13 @@ function buildData(notes, branches) {
   return { openings, notes };
 }
 
-/** Rewrite the whole file in a fixed order (by opening → line → ply) so diffs stay clean. */
-function canonicalize(notes) {
+/** Rewrite the whole file in a fixed order (by opening → line → ply) so diffs stay clean. Includes
+ *  authored branch lines so notes attached to them aren't dropped. */
+function canonicalize(notes, branches) {
   const ordered = {};
   for (const o of OPENINGS) {
-    for (const l of o.lines) {
+    const lines = [...o.lines, ...((branches && branches[o.id]) || [])];
+    for (const l of lines) {
       const key = lineKey(o.id, l.id);
       const entry = notes[key];
       if (!entry) continue;
@@ -195,6 +197,33 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // Delete an authored branch (and any notes attached to it).
+    if (req.method === 'POST' && req.url === '/api/branch/delete') {
+      const { openingId, id } = JSON.parse(await readBody(req));
+      if (!openingId || !id) {
+        sendJson(res, 400, { error: 'openingId, id 필요' });
+        return;
+      }
+      const branches = await readBranches();
+      const list = branches[openingId] ?? [];
+      const next = list.filter((b) => b.id !== id);
+      if (next.length === list.length) {
+        sendJson(res, 404, { error: '갈래를 찾을 수 없음' });
+        return;
+      }
+      if (next.length) branches[openingId] = next;
+      else delete branches[openingId];
+      await writeBranches(branches);
+      const notes = await readNotes();
+      const key = lineKey(openingId, id);
+      if (notes[key]) {
+        delete notes[key];
+        await writeFile(NOTES_PATH, JSON.stringify(canonicalize(notes, branches), null, 2) + '\n');
+      }
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
     if (req.method === 'POST' && req.url === '/api/note') {
       const { key, ply, note } = JSON.parse(await readBody(req));
       if (typeof key !== 'string' || !Number.isInteger(ply)) {
@@ -210,7 +239,7 @@ const server = createServer(async (req, res) => {
       } else {
         notes[key][ply] = { text, refs };
       }
-      const ordered = canonicalize(notes);
+      const ordered = canonicalize(notes, await readBranches());
       await writeFile(NOTES_PATH, JSON.stringify(ordered, null, 2) + '\n');
       sendJson(res, 200, { ok: true, saved: ordered[key]?.[ply] ?? null });
       return;
