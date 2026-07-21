@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Chess, type Square } from 'chess.js';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -8,6 +8,7 @@ import { EvalBar } from '../../components/EvalBar';
 import { MoveQualityBadge, QUALITY_STYLES } from '../../components/MoveQualityBadge';
 import { annotationsFor, evalCp, formatEval, isNotable } from '../../data/openingAnnotations';
 import { getLine, getOpeningById, plainSan, type LineKind, type OpeningLine } from '../../data/openings';
+import { noteFor, type MoveNote } from '../../data/openingNotes';
 import { useSavedOpenings } from '../../storage/useSavedOpenings';
 import { colors, radius, spacing, typography } from '../../theme';
 import type { OpeningStackParamList } from '../../navigation/types';
@@ -49,6 +50,35 @@ function moveLabel(ply: number, san: string): string {
   return ply % 2 === 0 ? `${number}. ${san}` : `${number}... ${san}`;
 }
 
+const REFERENCE_ICON: Record<string, string> = {
+  explorer: '📊',
+  study: '📖',
+  article: '🔗',
+  book: '📕',
+  video: '▶️',
+};
+
+/** The teaching text for the move on the board, with its sources as tappable links. */
+function NoteView({ note }: { note: MoveNote | undefined }) {
+  if (!note) return null;
+  return (
+    <View style={styles.noteBlock}>
+      <Text style={styles.noteText}>{note.text}</Text>
+      {note.refs.length > 0 && (
+        <View style={styles.noteRefs}>
+          {note.refs.map((ref, index) => (
+            <Pressable key={`${ref.url}-${index}`} onPress={() => Linking.openURL(ref.url)} hitSlop={6}>
+              <Text style={styles.refChip}>
+                {REFERENCE_ICON[ref.kind] ?? '🔗'} {ref.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export function OpeningDetailScreen({ route, navigation }: Props) {
   const opening = getOpeningById(route.params.openingId);
   const { isSaved, toggleSaved } = useSavedOpenings();
@@ -87,7 +117,8 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   // exists to punish is held on screen longer — it is the whole point of watching it be played.
   useEffect(() => {
     if (finished || isUserTurn || wrongPosition) return;
-    const teaches = line?.notes?.[step] !== undefined || isNotable(annotations[step]?.quality ?? 'good');
+    const hasNote = !!(opening && line && noteFor(opening.id, line.id, step));
+    const teaches = hasNote || isNotable(annotations[step]?.quality ?? 'good');
     replyTimer.current = setTimeout(() => setStep((prev) => prev + 1), teaches ? OPPONENT_LESSON_MS : OPPONENT_REPLY_MS);
     return () => {
       if (replyTimer.current) clearTimeout(replyTimer.current);
@@ -258,7 +289,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
                 {isNotable(previous.quality) && <MoveQualityBadge quality={previous.quality} withLabel />}
                 {formatEval(previous) && <Text style={styles.evalText}>{formatEval(previous)}</Text>}
               </View>
-              {line.notes?.[step - 1] && <Text style={styles.noteText}>{line.notes[step - 1]}</Text>}
+              <NoteView note={noteFor(opening.id, line.id, step - 1)} />
               {previous.betterSan && (
                 <Text style={styles.betterText}>엔진이 더 좋다고 보는 수: {previous.betterSan}</Text>
               )}
@@ -274,7 +305,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
                 <Text style={[styles.moveSan, styles.moveSanNext]}>{moveLabel(step, moves[step])}</Text>
                 {upcoming && isNotable(upcoming.quality) && <MoveQualityBadge quality={upcoming.quality} withLabel />}
               </View>
-              {line.notes?.[step] && <Text style={styles.noteText}>{line.notes[step]}</Text>}
+              <NoteView note={noteFor(opening.id, line.id, step)} />
               <Text style={styles.stepHint}>
                 {isUserTurn
                   ? expected
@@ -473,10 +504,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
+  noteBlock: {
+    gap: spacing.xs,
+  },
   noteText: {
     ...typography.body,
     color: colors.text,
     lineHeight: 20,
+  },
+  noteRefs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  refChip: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '600',
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
   },
   betterText: {
     ...typography.caption,

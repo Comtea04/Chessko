@@ -33,7 +33,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit && tsc --noEmit -p scripts",
-    "gen:openings": "node scripts/generate-opening-annotations.mts"
+    "gen:openings": "node scripts/generate-opening-annotations.mts",
+    "author": "node scripts/author-server.mjs"
   },
   "private": true
 }

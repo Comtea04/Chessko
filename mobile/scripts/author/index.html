@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>오프닝 설명 편집기</title>
+<style>
+  :root { --bg:#f4f5f8; --card:#fff; --line:#dfe3ea; --text:#1c2230; --muted:#6b7280; --primary:#3452d9; --light:#efe7d8; --dark:#8a7256; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:12px 20px; background:var(--card); border-bottom:1px solid var(--line); display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  select { padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:14px; }
+  main { display:grid; grid-template-columns: 380px 1fr; gap:20px; padding:20px; align-items:start; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  #board { width:352px; height:352px; display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr); border-radius:8px; overflow:hidden; margin:0 auto; }
+  .sq { display:flex; align-items:center; justify-content:center; font-size:34px; line-height:1; user-select:none; }
+  .sq.l { background:var(--light); } .sq.d { background:var(--dark); }
+  .pc.w { color:#fff; text-shadow:0 0 1px #333, 0 1px 2px rgba(0,0,0,.4); }
+  .pc.b { color:#111; }
+  .nav { display:flex; gap:8px; justify-content:center; margin-top:12px; }
+  button { padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:14px; cursor:pointer; }
+  button.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+  button:disabled { opacity:.4; cursor:default; }
+  .moves { display:flex; flex-wrap:wrap; gap:6px; margin-top:14px; }
+  .mv { padding:4px 8px; border-radius:6px; background:#eef1f7; font-size:13px; cursor:pointer; }
+  .mv.cur { background:var(--primary); color:#fff; }
+  .mv.has::after { content:"•"; margin-left:4px; color:var(--primary); }
+  .mv.cur.has::after { color:#fff; }
+  label { display:block; font-size:12px; color:var(--muted); margin:14px 0 6px; }
+  textarea { width:100%; min-height:90px; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; resize:vertical; }
+  .ref { display:grid; grid-template-columns: 1fr 1.6fr auto auto; gap:6px; margin-bottom:6px; }
+  .ref input, .ref select { padding:6px; border:1px solid var(--line); border-radius:6px; font-size:13px; min-width:0; }
+  .row { display:flex; gap:8px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  .muted { color:var(--muted); font-size:12px; }
+  a.ext { font-size:13px; color:var(--primary); }
+  #status { font-size:13px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>오프닝 설명 편집기</h1>
+  <select id="opening"></select>
+  <select id="line"></select>
+  <span id="status"></span>
+</header>
+<main>
+  <div class="card">
+    <div id="board"></div>
+    <div class="nav">
+      <button id="prev">◀ 이전</button>
+      <span id="ply" class="muted" style="align-self:center"></span>
+      <button id="next">다음 ▶</button>
+    </div>
+    <div class="moves" id="moves"></div>
+  </div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <strong id="moveTitle">—</strong>
+      <a class="ext" id="lichess" target="_blank" rel="noreferrer">Lichess 분석에서 열기 ↗</a>
+    </div>
+    <label>설명 (한국어)</label>
+    <textarea id="text" placeholder="이 수에 대한 설명…"></textarea>
+    <label>레퍼런스 (출처 + 링크)</label>
+    <div id="refs"></div>
+    <div class="row">
+      <button id="addRef">+ 레퍼런스 추가</button>
+      <button class="primary" id="save">저장</button>
+      <span id="saveMsg" class="muted"></span>
+    </div>
+    <p class="muted" style="margin-top:16px">저장하면 <code>src/data/openingNotes.json</code>에 바로 기록됩니다. 남의 스터디 <b>텍스트를 복사하지 말고</b>, 링크로만 다세요.</p>
+  </div>
+</main>
+<script>
+const GLYPH = { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' };
+const KINDS = ['explorer','study','article','book','video'];
+let data, oi=0, li=0, ply=0;
+let notes = {}; // local mirror of server notes
+
+const $ = (id) => document.getElementById(id);
+
+function line() { return data.openings[oi].lines[li]; }
+function flipped() { return data.openings[oi].sideToLearn === 'b'; }
+
+function renderBoard(fen) {
+  const board = $('board'); board.innerHTML = '';
+  const rows = fen.split(' ')[0].split('/');
+  const grid = [];
+  for (const r of rows) {
+    const row = [];
+    for (const ch of r) {
+      if (/\d/.test(ch)) for (let i=0;i<+ch;i++) row.push(null);
+      else row.push(ch);
+    }
+    grid.push(row);
+  }
+  const rankOrder = flipped() ? [...grid].reverse() : grid;
+  rankOrder.forEach((row, ri) => {
+    const cells = flipped() ? [...row].reverse() : row;
+    cells.forEach((pc, ci) => {
+      const sq = document.createElement('div');
+      const dark = (ri + ci) % 2 === 1;
+      sq.className = 'sq ' + (dark ? 'd' : 'l');
+      if (pc) {
+        const span = document.createElement('span');
+        span.className = 'pc ' + (pc === pc.toUpperCase() ? 'w' : 'b');
+        span.textContent = GLYPH[pc.toLowerCase()];
+        sq.appendChild(span);
+      }
+      board.appendChild(sq);
+    });
+  });
+}
+
+function moveLabel(i, san) {
+  const n = Math.floor(i/2) + 1;
+  return i % 2 === 0 ? `${n}. ${san}` : `${n}… ${san}`;
+}
+
+function currentNote() {
+  const key = line().key;
+  return (notes[key] && notes[key][ply]) || { text:'', refs:[] };
+}
+
+function renderRefs(refs) {
+  const box = $('refs'); box.innerHTML = '';
+  refs.forEach((ref, idx) => {
+    const div = document.createElement('div'); div.className = 'ref';
+    const label = document.createElement('input'); label.placeholder='표시명 (예: Lichess 마스터 DB)'; label.value=ref.label||'';
+    const url = document.createElement('input'); url.placeholder='https://…'; url.value=ref.url||'';
+    const kind = document.createElement('select');
+    KINDS.forEach(k => { const o=document.createElement('option'); o.value=k; o.textContent=k; if(k===ref.kind)o.selected=true; kind.appendChild(o); });
+    const del = document.createElement('button'); del.textContent='✕';
+    label.oninput = () => ref.label = label.value;
+    url.oninput = () => ref.url = url.value;
+    kind.onchange = () => ref.kind = kind.value;
+    del.onclick = () => { refs.splice(idx,1); renderRefs(refs); };
+    div.append(label, url, kind, del); box.appendChild(div);
+  });
+}
+
+let editRefs = [];
+function renderEditor() {
+  const l = line();
+  const san = l.moves[ply];
+  $('moveTitle').textContent = san ? `${moveLabel(ply, san)}` : '—';
+  $('ply').textContent = `${ply+1} / ${l.moves.length}`;
+  const fen = l.fens[ply];
+  renderBoard(fen);
+  $('lichess').href = 'https://lichess.org/analysis/' + fen.replace(/ /g,'_');
+  const note = currentNote();
+  $('text').value = note.text || '';
+  editRefs = (note.refs || []).map(r => ({...r}));
+  renderRefs(editRefs);
+  $('saveMsg').textContent = '';
+  // moves strip
+  const strip = $('moves'); strip.innerHTML='';
+  l.moves.forEach((m, i) => {
+    const el = document.createElement('span');
+    const has = notes[l.key] && notes[l.key][i] && notes[l.key][i].text;
+    el.className = 'mv' + (i===ply?' cur':'') + (has?' has':'');
+    el.textContent = moveLabel(i, m);
+    el.onclick = () => { ply=i; renderEditor(); };
+    strip.appendChild(el);
+  });
+  $('prev').disabled = ply<=0;
+  $('next').disabled = ply>=l.moves.length-1;
+}
+
+function fillSelects() {
+  const os = $('opening'); os.innerHTML='';
+  data.openings.forEach((o,i)=>{ const opt=document.createElement('option'); opt.value=i; opt.textContent=o.name+(o.sideToLearn==='b'?' (흑)':' (백)'); os.appendChild(opt); });
+  os.value = oi;
+  const ls = $('line'); ls.innerHTML='';
+  data.openings[oi].lines.forEach((l,i)=>{ const opt=document.createElement('option'); opt.value=i; opt.textContent=`${l.name} [${l.kind}]`; ls.appendChild(opt); });
+  ls.value = li;
+}
+
+async function save() {
+  const key = line().key;
+  const body = { key, ply, note: { text: $('text').value, refs: editRefs.filter(r=>r.url&&r.label) } };
+  const res = await fetch('/api/note', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
+  const out = await res.json();
+  if (out.ok) {
+    notes[key] = notes[key] || {};
+    if (out.saved) notes[key][ply] = out.saved; else delete notes[key][ply];
+    $('saveMsg').textContent = '저장됨 ✓';
+    renderEditor();
+  } else {
+    $('saveMsg').textContent = '오류: ' + (out.error||'실패');
+  }
+}
+
+$('opening').onchange = e => { oi=+e.target.value; li=0; ply=0; fillSelects(); renderEditor(); };
+$('line').onchange = e => { li=+e.target.value; ply=0; renderEditor(); };
+$('prev').onclick = () => { if(ply>0){ply--; renderEditor();} };
+$('next').onclick = () => { if(ply<line().moves.length-1){ply++; renderEditor();} };
+$('addRef').onclick = () => { editRefs.push({label:'',url:'',kind:'explorer'}); renderRefs(editRefs); };
+$('save').onclick = save;
+
+(async () => {
+  data = await (await fetch('/api/data')).json();
+  notes = data.notes || {};
+  fillSelects();
+  renderEditor();
+  $('status').textContent = `${data.openings.length}개 오프닝`;
+})();
+</script>
+</body>
+</html>
