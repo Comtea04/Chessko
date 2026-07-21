@@ -31,7 +31,7 @@ export function OpeningStackNavigator() {
       }}
     >
       <Stack.Screen name="OpeningList" component={OpeningList} options={{ headerShown: false }} />
-      <Stack.Screen name="OpeningDetail" component={OpeningDetail} options={{ title: '오프닝 상세' }} />
+      <Stack.Screen name="OpeningDetail" component={OpeningDetail} options={{ title: '' }} />
       <Stack.Screen name="Analysis" component={Analysis} options={{ title: '포지션 분석' }} />
     </Stack.Navigator>
   );

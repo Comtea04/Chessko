@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Chess, type Square } from 'chess.js';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -108,6 +108,26 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
 
   const [lineId, setLineId] = useState(opening?.lines[0]?.id ?? '');
   const line: OpeningLine | undefined = opening && getLine(opening, lineId);
+  const saved = opening ? isSaved(opening.id) : false;
+
+  // The nav header carries the identity: opening name as the title, current line as the subtitle
+  // (it updates as the user branches), save on the right, and just the back button on the left.
+  useLayoutEffect(() => {
+    if (!opening || !line) return;
+    navigation.setOptions({
+      headerTitle: () => (
+        <View style={styles.navHeader}>
+          <Text style={styles.navTitle} numberOfLines={1}>{opening.name}</Text>
+          <Text style={styles.navSubtitle} numberOfLines={1}>{line.name}</Text>
+        </View>
+      ),
+      headerRight: () => (
+        <Pressable onPress={() => toggleSaved(opening.id)} hitSlop={8}>
+          <Text style={styles.navSave}>{saved ? '★' : '☆'}</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation, opening, line, saved, toggleSaved]);
 
   // The annotations are indexed by ply, exactly like the moves they grade.
   const annotations = useMemo(() => (opening && line ? annotationsFor(opening, line) : []), [opening, line]);
@@ -278,7 +298,6 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
     return <ExploreMode opening={opening} startFen={explore.startFen} engine={engine} onExit={() => setExplore(null)} />;
   }
 
-  const saved = isSaved(opening.id);
   const flipped = opening.sideToLearn === 'b';
 
   const shownFen = deviation ? deviation.fen : wrongPosition ? wrongPosition.fen : null;
@@ -337,18 +356,6 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerText}>
-            <Text style={typography.title}>{opening.name}</Text>
-            <Text style={styles.eco}>
-              {opening.eco} · {opening.category} · {flipped ? '흑' : '백'} 오프닝
-            </Text>
-          </View>
-          <Pressable style={[styles.saveButton, saved && styles.saveButtonActive]} onPress={() => toggleSaved(opening.id)}>
-            <Text style={[styles.saveButtonText, saved && styles.saveButtonTextActive]}>{saved ? '★ 저장됨' : '☆ 저장'}</Text>
-          </Pressable>
-        </View>
-
         <Text style={styles.description}>{opening.description}</Text>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lineTabs}>
@@ -545,6 +552,21 @@ const styles = StyleSheet.create({
   },
   eco: {
     ...typography.caption,
+  },
+  navHeader: {
+    alignItems: 'center',
+  },
+  navTitle: {
+    ...typography.heading,
+    color: colors.text,
+  },
+  navSubtitle: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  navSave: {
+    fontSize: 22,
+    color: colors.primary,
   },
   description: {
     ...typography.body,
