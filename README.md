@@ -72,10 +72,13 @@ Lotus Chess 스타일의 하단 3탭 구조입니다. 학습 데이터(저장한
 ### 1) 백엔드 + Vision — Docker (권장)
 
 ```bash
+cp .env.example .env           # 최초 1회 — 개발용으로 BACKEND_BIND=0.0.0.0 주석 해제
 docker compose up --build      # 백엔드 API가 :8080, 내부 네트워크에서 vision:8000 호출
 ```
 
-`backend/.env`의 값(비밀키 등)을 그대로 읽습니다. Vision의 등록 테마는 볼륨에 영속됩니다. 실행 상세와 HTTPS 배포(Caddy)는 [deploy/README.md](deploy/README.md)를 참고하세요.
+**포트는 기본값이 `127.0.0.1`(로컬 전용)입니다.** 공개 호스트에서 Caddy 뒤에 두기 위한 기본값이라, 그대로 두면 **같은 와이파이의 실기기에서 접속이 거부됩니다.** 폰으로 테스트하려면 루트 `.env`에 `BACKEND_BIND=0.0.0.0`을 넣으세요. 브라우저(`npm run web`)만 쓴다면 기본값으로 충분합니다.
+
+`backend/.env`의 값(비밀키 등)을 그대로 읽습니다. `OPENAI_API_KEY`가 비어 있으면 RAG 해설만 503을 반환하고 **스톡피쉬 분석·대국 복기·스크린샷 스캔은 정상 동작합니다.** Vision의 등록 테마는 볼륨에 영속됩니다. 실행 상세와 HTTPS 배포(Caddy)는 [deploy/README.md](deploy/README.md)를 참고하세요.
 
 ### 1-B) 백엔드 + Vision — Docker 없이 직접 실행
 
