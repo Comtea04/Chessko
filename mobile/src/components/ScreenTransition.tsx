@@ -9,10 +9,15 @@ const MORPH_MS = 260;
 const MORPH_EASING = Easing.bezier(0.2, 0, 0, 1);
 
 /**
- * Morph-style entrance: the screen cross-fades in while settling from a barely-larger scale.
- * Paired with a cross-fading navigator animation, elements that sit in the same place on both
- * screens (header, board, cards) read as one element flowing into the next rather than a cut.
- * There is deliberately no overshoot — the motion only decelerates.
+ * Morph-style entrance: the screen settles in from a barely-larger scale while the navigator
+ * cross-fades it. Elements that sit in the same place on both screens (header, board, cards) read
+ * as one element flowing into the next rather than a cut. There is deliberately no overshoot — the
+ * motion only decelerates.
+ *
+ * The fade belongs to the navigator (`animation: 'fade'`), not here. Doing it in both places made
+ * the screen semi-transparent twice over, and a card's shadow is drawn separately from its
+ * background — so while the content faded, the shadow of the screen underneath stayed visible
+ * through it. Scale is the only thing this adds.
  */
 export function ScreenTransition({ children }: { children: React.ReactNode }) {
   const { animations } = useSettings();
@@ -45,10 +50,7 @@ export function ScreenTransition({ children }: { children: React.ReactNode }) {
     <Animated.View
       style={[
         styles.fill,
-        {
-          opacity: progress,
-          transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [1.02, 1] }) }],
-        },
+        { transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [1.02, 1] }) }] },
       ]}
     >
       {children}

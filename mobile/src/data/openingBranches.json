@@ -23,5 +23,31 @@
         "Qxc3"
       ]
     }
+  ],
+  "authored": [
+    {
+      "id": "nc6-5",
+      "name": "대표적인 실수 3.Nc6",
+      "kind": "punish",
+      "branchPly": 5,
+      "description": "",
+      "moves": [
+        "d4",
+        "d5",
+        "Nc3",
+        "Nf6",
+        "Bf4",
+        "Nc6",
+        "Nb5",
+        "e5",
+        "Bxe5",
+        "Nxe5",
+        "dxe5",
+        "Ng4",
+        "Qxd5!",
+        "Qxd5",
+        "Nxc7+"
+      ]
+    }
   ]
 }

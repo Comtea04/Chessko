@@ -25,8 +25,11 @@ export function PracticeStackNavigator() {
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,
         headerShadowVisible: false,
-        // Cross-fade rather than slide: shared furniture (header, board) morphs in place.
-        animation: animations ? 'fade' : 'none',
+        // No transition: the screens share their furniture (header, board) in the same place, so
+        // swapping the content under it reads as one screen changing rather than two screens
+        // trading places. A cross-fade cannot do that — dissolving between two opaque screens shows
+        // both of them at once halfway through. The settling scale in ScreenTransition is the motion.
+        animation: 'none',
         gestureEnabled: animations,
         fullScreenGestureEnabled: animations,
       }}

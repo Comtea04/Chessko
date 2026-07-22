@@ -23,7 +23,8 @@ export function MyPageStackNavigator() {
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: colors.text,
         headerShadowVisible: false,
-        animation: animations ? 'fade' : 'none',
+        // See OpeningStackNavigator: a cross-fade shows both screens at once halfway through.
+        animation: 'none',
         gestureEnabled: animations,
         fullScreenGestureEnabled: animations,
       }}

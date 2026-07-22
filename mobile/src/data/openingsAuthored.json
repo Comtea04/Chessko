@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "id": "authored",
+    "name": "조바바 런던 시스템",
+    "eco": "",
+    "category": "폐쇄 게임",
+    "sideToLearn": "w",
+    "description": "2.Bf4가 아닌 2.Nc3후에 3.Bf4로 시작하는 런던시스템이다.",
+    "lines": [
+      {
+        "id": "main",
+        "name": "메인라인",
+        "kind": "main",
+        "branchPly": 0,
+        "description": "",
+        "moves": [
+          "d4",
+          "d5",
+          "Nc3",
+          "Nf6",
+          "Bf4"
+        ]
+      }
+    ]
+  }
+]

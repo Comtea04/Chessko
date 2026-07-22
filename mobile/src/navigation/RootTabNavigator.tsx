@@ -1,11 +1,9 @@
-import { Easing } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
 import { OpeningStackNavigator } from './OpeningStackNavigator';
 import { PracticeStackNavigator } from './PracticeStackNavigator';
 import { MyPageStackNavigator } from './MyPageStackNavigator';
-import { useSettings } from '../storage/useSettings';
 import { colors } from '../theme';
 import type { RootTabParamList } from './types';
 
@@ -18,8 +16,6 @@ const ICONS: Record<keyof RootTabParamList, { active: keyof typeof Ionicons.glyp
 };
 
 export function RootTabNavigator() {
-  const { animations } = useSettings();
-
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -31,12 +27,10 @@ export function RootTabNavigator() {
           borderTopColor: colors.border,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        // Cross-fade tabs so the shared layout (header, cards) reads as one screen morphing into the next.
-        animation: animations ? 'fade' : 'none',
-        transitionSpec: {
-          animation: 'timing',
-          config: { duration: 260, easing: Easing.bezier(0.2, 0, 0, 1) },
-        },
+        // Tabs swap outright for the same reason the stacks do: fading between two opaque screens
+        // means showing both of them halfway through, which reads as the old screen bleeding into
+        // the new one rather than as a morph.
+        animation: 'none',
         tabBarIcon: ({ focused, color, size }) => {
           const icon = ICONS[route.name];
           return <Ionicons name={focused ? icon.active : icon.inactive} size={size} color={color} />;
