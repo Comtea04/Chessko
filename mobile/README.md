@@ -127,7 +127,7 @@ src/
 ├── components/
 │   ├── ChessBoard.tsx     보드 렌더링. 하이라이트·화살표·기물 이동 애니메이션·보드 뒤집기를 담당
 │   ├── EvalBar.tsx        체스닷컴식 세로 이밸류에이션 바 (대국 복기)
-│   ├── MoveList.tsx       기보 뷰어 (분석·복기 화면에서 사용)
+│   ├── MoveList.tsx       기보 표 + MoveNavRow(이전/다음). 복기 화면은 버튼만 스크롤 밖에 고정
 │   ├── ScreenTransition.tsx  화면 진입 모핑 전환 + withScreenTransition HOC
 │   ├── Card.tsx, ScreenHeader.tsx
 │   ├── FenInput.tsx, AnalysisPanel.tsx, VisionImportPanel.tsx, PromotionPicker.tsx

@@ -1,14 +1,15 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { colors, radius, spacing, typography } from '../theme';
+
 interface MoveListProps {
   moves: string[];
   viewIndex: number;
   onGoToIndex: (index: number) => void;
-  onPrevious: () => void;
-  onNext: () => void;
 }
 
-export function MoveList({ moves, viewIndex, onGoToIndex, onPrevious, onNext }: MoveListProps) {
+/** The move pairs, as a scrollable notation table. Tapping a move jumps the board to it. */
+export function MoveList({ moves, viewIndex, onGoToIndex }: MoveListProps) {
   const movePairs: { moveNumber: number; white?: string; black?: string; whiteIndex: number; blackIndex: number }[] = [];
   for (let i = 0; i < moves.length; i += 2) {
     movePairs.push({
@@ -21,81 +22,118 @@ export function MoveList({ moves, viewIndex, onGoToIndex, onPrevious, onNext }: 
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-        <Pressable onPress={() => onGoToIndex(-1)} style={styles.startRow}>
-          <Text style={[styles.moveText, viewIndex === -1 && styles.activeMove]}>시작 포지션</Text>
-        </Pressable>
-        {movePairs.map((pair) => (
-          <View key={pair.moveNumber} style={styles.pairRow}>
-            <Text style={styles.moveNumber}>{pair.moveNumber}.</Text>
-            <Pressable onPress={() => onGoToIndex(pair.whiteIndex)}>
-              <Text style={[styles.moveText, viewIndex === pair.whiteIndex && styles.activeMove]}>{pair.white}</Text>
+    <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+      <Pressable onPress={() => onGoToIndex(-1)} style={styles.startRow}>
+        <Text style={[styles.moveText, viewIndex === -1 && styles.activeMove]}>시작 포지션</Text>
+      </Pressable>
+      {movePairs.map((pair) => (
+        <View key={pair.moveNumber} style={styles.pairRow}>
+          <Text style={styles.moveNumber}>{pair.moveNumber}.</Text>
+          <Pressable onPress={() => onGoToIndex(pair.whiteIndex)}>
+            <Text style={[styles.moveText, viewIndex === pair.whiteIndex && styles.activeMove]}>{pair.white}</Text>
+          </Pressable>
+          {pair.black && (
+            <Pressable onPress={() => onGoToIndex(pair.blackIndex)}>
+              <Text style={[styles.moveText, viewIndex === pair.blackIndex && styles.activeMove]}>{pair.black}</Text>
             </Pressable>
-            {pair.black && (
-              <Pressable onPress={() => onGoToIndex(pair.blackIndex)}>
-                <Text style={[styles.moveText, viewIndex === pair.blackIndex && styles.activeMove]}>{pair.black}</Text>
-              </Pressable>
-            )}
-          </View>
-        ))}
-      </ScrollView>
-      <View style={styles.navRow}>
-        <Pressable style={styles.navButton} onPress={onPrevious} disabled={viewIndex < 0}>
-          <Text style={styles.navButtonText}>◀ 이전</Text>
-        </Pressable>
-        <Pressable style={styles.navButton} onPress={onNext} disabled={viewIndex >= moves.length - 1}>
-          <Text style={styles.navButtonText}>다음 ▶</Text>
-        </Pressable>
-      </View>
+          )}
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+/**
+ * Stepping controls, kept apart from the list so a screen can pin them outside its scroll view.
+ * Replaying a game is done one tap at a time, and a button you have to scroll to find is a button
+ * that interrupts the thing it exists for. `pinned` draws the divider that separates it from the
+ * content it floats over.
+ */
+export function MoveNavRow({
+  viewIndex,
+  moveCount,
+  onPrevious,
+  onNext,
+  pinned = false,
+}: {
+  viewIndex: number;
+  moveCount: number;
+  onPrevious: () => void;
+  onNext: () => void;
+  pinned?: boolean;
+}) {
+  const atStart = viewIndex < 0;
+  const atEnd = viewIndex >= moveCount - 1;
+
+  return (
+    <View style={[styles.navRow, pinned && styles.navRowPinned]}>
+      <Pressable style={[styles.navButton, atStart && styles.navButtonDisabled]} onPress={onPrevious} disabled={atStart}>
+        <Text style={styles.navButtonText}>◀ 이전</Text>
+      </Pressable>
+      <Pressable style={[styles.navButton, atEnd && styles.navButtonDisabled]} onPress={onNext} disabled={atEnd}>
+        <Text style={styles.navButtonText}>다음 ▶</Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  list: {
     width: '100%',
     maxWidth: 360,
-    gap: 6,
-  },
-  list: {
     maxHeight: 140,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 6,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
   },
   listContent: {
-    padding: 8,
+    padding: spacing.sm,
   },
   startRow: {
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   pairRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     marginBottom: 2,
   },
   moveNumber: {
-    color: '#888',
+    ...typography.caption,
+    color: colors.textMuted,
     width: 24,
   },
   moveText: {
-    fontSize: 13,
+    ...typography.caption,
+    color: colors.text,
   },
   activeMove: {
     fontWeight: '700',
-    color: '#3d5a29',
+    color: colors.primary,
   },
   navRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  navRowPinned: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   navButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  navButtonDisabled: {
+    opacity: 0.35,
   },
   navButtonText: {
-    color: '#3d5a29',
-    fontWeight: '600',
+    color: colors.primary,
+    fontWeight: '700',
   },
 });

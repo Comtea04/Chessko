@@ -7,7 +7,7 @@ import { useChessGame } from '../../hooks/useChessGame';
 import { ChessBoard } from '../../components/ChessBoard';
 import { PromotionPicker } from '../../components/PromotionPicker';
 import { FenInput } from '../../components/FenInput';
-import { MoveList } from '../../components/MoveList';
+import { MoveList, MoveNavRow } from '../../components/MoveList';
 import { AnalysisPanel } from '../../components/AnalysisPanel';
 import { VisionImportPanel } from '../../components/VisionImportPanel';
 import { analyzePosition, AnalysisApiError, type AnalysisResponse } from '../../api/analysisApi';
@@ -112,10 +112,12 @@ export function AnalysisScreen({ route }: Props) {
           onSquarePress={handleSquarePress}
         />
 
-        <MoveList
-          moves={game.moves}
+        {/* Not pinned here: this screen is a workbench, not a replay, and the notation sits in the
+            middle of it — controls stuck to the bottom would float far from what they move. */}
+        <MoveList moves={game.moves} viewIndex={game.viewIndex} onGoToIndex={game.goToIndex} />
+        <MoveNavRow
           viewIndex={game.viewIndex}
-          onGoToIndex={game.goToIndex}
+          moveCount={game.moves.length}
           onPrevious={game.goToPrevious}
           onNext={game.goToNext}
         />

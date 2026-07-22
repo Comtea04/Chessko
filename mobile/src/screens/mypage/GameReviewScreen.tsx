@@ -5,7 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ChessBoard } from '../../components/ChessBoard';
 import { EvalBar, whitePerspectiveCp } from '../../components/EvalBar';
-import { MoveList } from '../../components/MoveList';
+import { MoveList, MoveNavRow } from '../../components/MoveList';
 import { useChessGame } from '../../hooks/useChessGame';
 import { analyzeGame, AnalysisApiError, type PositionEvaluation } from '../../api/analysisApi';
 import { colors, radius, spacing, typography } from '../../theme';
@@ -82,7 +82,7 @@ export function GameReviewScreen({ route }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
         <Text style={styles.title}>vs {opponent}</Text>
         <Text style={styles.subtitle}>
           {playerColor === 'white' ? '백' : '흑'}으로 둔 대국 · 총 {parsed.moves.length}수
@@ -114,14 +114,18 @@ export function GameReviewScreen({ route }: Props) {
           </View>
         )}
 
-        <MoveList
-          moves={game.moves}
-          viewIndex={game.viewIndex}
-          onGoToIndex={game.goToIndex}
-          onPrevious={game.goToPrevious}
-          onNext={game.goToNext}
-        />
+        <MoveList moves={game.moves} viewIndex={game.viewIndex} onGoToIndex={game.goToIndex} />
       </ScrollView>
+
+      {/* Outside the scroll view: replaying a game is one tap at a time, so the controls have to
+          stay put rather than scroll away under the notation. */}
+      <MoveNavRow
+        viewIndex={game.viewIndex}
+        moveCount={game.moves.length}
+        onPrevious={game.goToPrevious}
+        onNext={game.goToNext}
+        pinned
+      />
     </SafeAreaView>
   );
 }
@@ -130,6 +134,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scroll: {
+    flex: 1,
   },
   container: {
     alignItems: 'center',
