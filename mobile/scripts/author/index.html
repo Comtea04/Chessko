@@ -30,6 +30,13 @@
   .mv.cur { background:var(--primary); color:#fff; }
   .mv.has::after { content:"•"; margin-left:4px; color:var(--primary); }
   .mv.cur.has::after { color:#fff; }
+  /* Author-pinned grades, same colours the app badges them with. */
+  .gm { border:1px solid transparent; }
+  .gm.g-brilliant { background:#e6f7f0; border-color:#2fae7a; color:#1b7d55; }
+  .gm.g-best      { background:#e9edfd; border-color:#3452d9; color:#2a41ad; }
+  .gm.g-inaccuracy{ background:#fdf3e0; border-color:#c98a1f; color:#8d6115; }
+  .gm.g-mistake   { background:#fdeceb; border-color:#d9433f; color:#a8302d; }
+  .gm.g-blunder   { background:#f9dcda; border-color:#a8302d; color:#7d201e; }
   label { display:block; font-size:12px; color:var(--muted); margin:14px 0 6px; }
   textarea { width:100%; min-height:90px; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; resize:vertical; }
   .ref { display:grid; grid-template-columns: 1fr 1.6fr auto auto; gap:6px; margin-bottom:6px; }
@@ -46,7 +53,8 @@
   <select id="opening"></select>
   <select id="line"></select>
   <span id="status"></span>
-  <button id="newBranch" style="margin-left:auto">＋ 새 갈래 추가</button>
+  <button id="newOpening" style="margin-left:auto">＋ 새 오프닝</button>
+  <button id="newBranch">＋ 새 갈래 추가</button>
 </header>
 <main>
   <div class="card">
@@ -70,18 +78,27 @@
     <div class="row">
       <button id="addRef">+ 레퍼런스 추가</button>
       <button class="primary" id="save">저장</button>
+      <button id="editBranch" style="display:none">✎ 이 갈래 수정</button>
       <span id="saveMsg" class="muted"></span>
     </div>
-    <div class="row" style="margin-top:12px"><button id="deleteBranch" style="display:none;border-color:#d9433f;color:#d9433f">이 갈래 삭제</button></div>
+    <div class="row" style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+      <span class="muted" style="width:100%">이 라인 · 오프닝 관리</span>
+      <button id="renameLine">라인 이름 변경</button>
+      <button id="deleteLine" style="border-color:#d9433f;color:#d9433f">라인 삭제</button>
+      <button id="renameOpening">오프닝 이름 변경</button>
+      <button id="deleteOpening" style="border-color:#d9433f;color:#d9433f">오프닝 삭제</button>
+    </div>
+    <p class="muted" id="manageHint" style="margin-top:8px"></p>
     <p class="muted" style="margin-top:16px">저장하면 <code>src/data/openingNotes.json</code>에 바로 기록됩니다. 남의 스터디 <b>텍스트를 복사하지 말고</b>, 링크로만 다세요.</p>
   </div>
   <div class="card" id="branchPanel" style="display:none">
     <div class="row" style="justify-content:space-between">
-      <strong>새 갈래(상대 응수) 추가</strong>
+      <strong id="branchTitle">새 갈래(상대 응수) 추가</strong>
       <button id="branchCancel">취소</button>
     </div>
     <p class="muted" id="branchFrom"></p>
-    <p><b>추가 수순:</b> <span id="branchSeq" class="muted">—</span></p>
+    <p style="margin:10px 0 6px"><b>추가 수순</b> <span class="muted">— 수를 누르면 등급이 붙습니다</span></p>
+    <div class="moves" id="branchSeq"></div>
     <div class="row"><button id="branchUndo">↶ 마지막 수 취소</button></div>
     <label>갈래 이름</label>
     <input id="branchName" placeholder="예: 교환 · 5...Bg4" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit" />
@@ -89,6 +106,35 @@
     <select id="branchKind"><option value="variation">변형</option><option value="punish">응징</option></select>
     <div class="row" style="margin-top:12px"><button class="primary" id="branchSave">갈래 저장</button><span id="branchMsg" class="muted"></span></div>
     <p class="muted" style="margin-top:12px">보드에서 상대(및 이후) 수를 두어 갈래를 만든 뒤 저장하세요. 저장하면 앱 트리에 즉시 나타나고, 위에서 그 라인을 골라 설명을 답니다.</p>
+  </div>
+  <div class="card" id="openingPanel" style="display:none">
+    <div class="row" style="justify-content:space-between">
+      <strong>새 오프닝 추가</strong>
+      <button id="openingCancel">취소</button>
+    </div>
+    <p style="margin:10px 0 6px"><b>메인라인 수순</b> <span class="muted">— 수를 누르면 등급이 붙습니다</span></p>
+    <div class="moves" id="openingSeq"></div>
+    <div class="row"><button id="openingUndo">↶ 마지막 수 취소</button></div>
+    <label>오프닝 이름</label>
+    <input id="openingName" placeholder="예: 벤코 갬빗" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit" />
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <label>ECO</label>
+        <input id="openingEco" placeholder="예: A57" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit" />
+      </div>
+      <div>
+        <label>공부하는 색</label>
+        <select id="openingSide" style="width:100%"><option value="w">백</option><option value="b">흑</option></select>
+      </div>
+    </div>
+    <label>카테고리</label>
+    <select id="openingCategory" style="width:100%"></select>
+    <label>메인라인 이름</label>
+    <input id="openingLineName" placeholder="메인라인" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit" />
+    <label>오프닝 설명 (한 줄)</label>
+    <textarea id="openingDesc" style="min-height:60px" placeholder="이 오프닝이 무엇을 노리는지…"></textarea>
+    <div class="row" style="margin-top:12px"><button class="primary" id="openingSave">오프닝 저장</button><span id="openingMsg" class="muted"></span></div>
+    <p class="muted" style="margin-top:12px">시작 포지션부터 보드에서 메인라인을 두고 저장하세요. <code>src/data/openingsAuthored.json</code>에 기록되고 앱 오프닝 목록에 바로 나타납니다. 변형은 저장 후 "＋ 새 갈래 추가"로 붙입니다. 수 평가는 <code>npm run gen:openings</code>를 돌려야 채워집니다.</p>
   </div>
 </main>
 <script>
@@ -100,7 +146,11 @@ let notes = {}; // local mirror of server notes
 const $ = (id) => document.getElementById(id);
 
 function line() { return data.openings[oi].lines[li]; }
-function flipped() { return data.openings[oi].sideToLearn === 'b'; }
+/** The board is drawn from the taught side's view — for an opening being created, from the form's. */
+function flipped() {
+  if (editor && editor.kind === 'opening') return $('openingSide').value === 'b';
+  return data.openings[oi].sideToLearn === 'b';
+}
 
 const FILES = ['a','b','c','d','e','f','g','h'];
 function renderBoard(fen, opts) {
@@ -174,7 +224,13 @@ function renderEditor() {
   editRefs = (note.refs || []).map(r => ({...r}));
   renderRefs(editRefs);
   $('saveMsg').textContent = '';
-  $('deleteBranch').style.display = l.authored ? '' : 'none';
+  $('editBranch').style.display = l.authored ? '' : 'none';
+  // Curated data isn't rewritten by this tool — deleting it records a "hidden" override instead, and
+  // saying so up front is the difference between an undoable action and a confusing one.
+  const o = data.openings[oi];
+  $('manageHint').textContent = o.authored || l.authored
+    ? '직접 추가한 항목이라 파일에서 완전히 지워집니다.'
+    : 'openings.ts의 원본은 그대로 두고 openingEdits.json에 기록합니다 — 되돌리려면 그 파일의 항목을 지우세요.';
   // moves strip
   const strip = $('moves'); strip.innerHTML='';
   l.moves.forEach((m, i) => {
@@ -193,9 +249,16 @@ function fillSelects() {
   const os = $('opening'); os.innerHTML='';
   data.openings.forEach((o,i)=>{ const opt=document.createElement('option'); opt.value=i; opt.textContent=o.name+(o.sideToLearn==='b'?' (흑)':' (백)'); os.appendChild(opt); });
   os.value = oi;
+  // The lines nest — each branches off the one above — and the server sends how deep each sits, so
+  // the list reads as the path you'd take: 투 나이츠 디펜스 › 나이트 어택 › 폴레리오 디펜스.
   const ls = $('line'); ls.innerHTML='';
-  data.openings[oi].lines.forEach((l,i)=>{ const opt=document.createElement('option'); opt.value=i; opt.textContent=`${l.name} [${l.kind}]`; ls.appendChild(opt); });
+  data.openings[oi].lines.forEach((l,i)=>{
+    const opt=document.createElement('option'); opt.value=i;
+    opt.textContent = '  '.repeat(l.depth) + (l.depth ? '└ ' : '') + `${l.name} [${l.kind}]`;
+    ls.appendChild(opt);
+  });
   ls.value = li;
+  $('status').textContent = `${data.openings.length}개 오프닝`;
 }
 
 async function save() {
@@ -213,95 +276,221 @@ async function save() {
   }
 }
 
-// ---- 새 갈래(상대 응수) 추가 모드 ----
-let branch = null; // { path:[], newMoves:[], selected, fen, legal:[] }
+// ---- 보드로 수순을 입력하는 모드: 새 갈래, 새 오프닝 ----
+// 둘 다 "고정된 앞부분(path) + 보드에서 두는 뒷부분(added)"이라 상태와 조작이 같습니다.
+// 새 오프닝은 path가 비어 있는 경우일 뿐입니다.
+let editor = null; // { kind:'branch'|'opening', path:[], added:[], marks:[], selected, fen, legal:[] }
 
-function closeBranch() { branch = null; $('branchPanel').style.display = 'none'; $('editorPanel').style.display = ''; }
+// A move may carry the grade its author pins on it, as a SAN suffix the app reads back
+// (`authoredQuality`). Clicking a move cycles through them; '' is the ordinary book move.
+const GRADES = ['', '!', '!!', '?!', '?', '??'];
+const GRADE_NAME = { '': '평범한 수', '!': '좋은 수', '!!': '탁월수', '?!': '부정확', '?': '실수', '??': '블런더' };
+const GRADE_CLASS = { '!': 'g-best', '!!': 'g-brilliant', '?!': 'g-inaccuracy', '?': 'g-mistake', '??': 'g-blunder' };
+
+const plainOf = (san) => san.replace(/[!?]+$/, '');
+const gradeOf = (san) => (san.match(/[!?]+$/) || [''])[0];
+
+/** The moves as they get stored: SAN with the author's grade appended. */
+function gradedMoves() {
+  return editor.added.map((san, i) => san + editor.marks[i]);
+}
+
+function closeEditor() {
+  editor = null;
+  $('branchPanel').style.display = 'none';
+  $('openingPanel').style.display = 'none';
+  $('editorPanel').style.display = '';
+}
+
+function enterEditor(kind, path, added = [], marks = [], editingId = null) {
+  editor = { kind, path, added, marks, editingId, selected: null, fen: '', legal: [] };
+  $('editorPanel').style.display = 'none';
+  $('branchPanel').style.display = kind === 'branch' ? '' : 'none';
+  $('openingPanel').style.display = kind === 'opening' ? '' : 'none';
+  loadEditorPosition();
+}
 
 function enterBranch() {
+  enterEditor('branch', line().moves.slice(0, ply + 1));
+  $('branchTitle').textContent = '새 갈래(상대 응수) 추가';
+  $('branchSave').textContent = '갈래 저장';
+  $('branchName').value = ''; $('branchKind').value = 'variation'; $('branchMsg').textContent = '';
+  $('branchFrom').textContent = `분기 지점: ${editor.path.length}수 후 — ${editor.path.join(' ')}`;
+}
+
+/** Reopen an authored branch with its own moves loaded, to change the moves or their grades. The
+ *  shared trunk up to `branchPly` stays fixed; everything after it is back on the board to redo. */
+function editBranch() {
   const l = line();
-  branch = { path: l.moves.slice(0, ply + 1), newMoves: [], selected: null, fen: '', legal: [] };
-  $('editorPanel').style.display = 'none';
-  $('branchPanel').style.display = '';
-  $('branchName').value = ''; $('branchMsg').textContent = '';
-  $('branchFrom').textContent = `분기 지점: ${branch.path.length}수 후 — ${branch.path.join(' ')}`;
-  loadBranchPosition();
+  if (!l.authored) return;
+  const after = l.graded.slice(l.branchPly);
+  enterEditor('branch', l.graded.slice(0, l.branchPly), after.map(plainOf), after.map(gradeOf), l.id);
+  $('branchTitle').textContent = `갈래 수정 — ${l.name}`;
+  $('branchSave').textContent = '수정 저장';
+  $('branchName').value = l.name; $('branchKind').value = l.kind; $('branchMsg').textContent = '';
+  $('branchFrom').textContent = `분기 지점: ${editor.path.length}수 후 — ${l.moves.slice(0, l.branchPly).join(' ')}`;
 }
 
-async function loadBranchPosition() {
-  const moves = [...branch.path, ...branch.newMoves];
+function enterOpening() {
+  enterEditor('opening', []);
+  for (const id of ['openingName','openingEco','openingLineName','openingDesc']) $(id).value = '';
+  $('openingMsg').textContent = '';
+}
+
+async function loadEditorPosition() {
+  const moves = [...editor.path, ...editor.added];
+  const msg = editor.kind === 'branch' ? 'branchMsg' : 'openingMsg';
   const res = await (await fetch('/api/position', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ moves }) })).json();
-  if (!res.ok) { $('branchMsg').textContent = res.error || '오류'; return; }
-  branch.fen = res.fen; branch.legal = res.moves; branch.selected = null;
-  renderBranch();
+  if (!res.ok) { $(msg).textContent = res.error || '오류'; return; }
+  editor.fen = res.fen; editor.legal = res.moves; editor.selected = null;
+  renderEditorBoard();
 }
 
-function renderBranch() {
-  const targets = branch.selected ? branch.legal.filter(m => m.from === branch.selected).map(m => m.to) : [];
-  renderBoard(branch.fen, { onSquare: onBranchSquare, selected: branch.selected, targets });
-  $('branchSeq').textContent = branch.newMoves.length
-    ? branch.newMoves.map((s, i) => moveLabel(branch.path.length + i, s)).join(' ')
-    : '—';
+function renderEditorBoard() {
+  const targets = editor.selected ? editor.legal.filter(m => m.from === editor.selected).map(m => m.to) : [];
+  renderBoard(editor.fen, { onSquare: onEditorSquare, selected: editor.selected, targets });
+  renderEditorSeq();
 }
 
-function onBranchSquare(square) {
-  if (!branch) return;
-  if (branch.selected) {
-    if (square === branch.selected) { branch.selected = null; return renderBranch(); }
-    const mv = branch.legal.find(m => m.from === branch.selected && m.to === square);
-    if (mv) { branch.newMoves.push(mv.san); return loadBranchPosition(); }
-    if (branch.legal.some(m => m.from === square)) { branch.selected = square; return renderBranch(); }
-    branch.selected = null; return renderBranch();
+function renderEditorSeq() {
+  const box = $(editor.kind === 'branch' ? 'branchSeq' : 'openingSeq');
+  box.innerHTML = '';
+  if (!editor.added.length) {
+    box.innerHTML = '<span class="muted">보드에서 수를 두세요</span>';
+    return;
   }
-  if (branch.legal.some(m => m.from === square)) { branch.selected = square; renderBranch(); }
+  editor.added.forEach((san, i) => {
+    const mark = editor.marks[i];
+    const el = document.createElement('span');
+    el.className = 'mv gm ' + (GRADE_CLASS[mark] || '');
+    el.textContent = moveLabel(editor.path.length + i, san) + mark;
+    el.title = `${GRADE_NAME[mark]} — 눌러서 변경`;
+    el.onclick = () => {
+      editor.marks[i] = GRADES[(GRADES.indexOf(mark) + 1) % GRADES.length];
+      renderEditorSeq();
+    };
+    box.appendChild(el);
+  });
 }
 
-async function saveBranch() {
-  if (!branch || branch.newMoves.length === 0) { $('branchMsg').textContent = '수를 최소 1개 두세요'; return; }
-  const name = $('branchName').value.trim();
-  if (!name) { $('branchMsg').textContent = '이름을 입력하세요'; return; }
-  const body = { openingId: data.openings[oi].id, name, kind: $('branchKind').value, branchPly: branch.path.length, moves: [...branch.path, ...branch.newMoves] };
-  const res = await (await fetch('/api/branch', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })).json();
-  if (!res.ok) { $('branchMsg').textContent = res.error || '저장 실패'; return; }
-  const savedId = res.branch.id;
+function onEditorSquare(square) {
+  if (!editor) return;
+  if (editor.selected) {
+    if (square === editor.selected) { editor.selected = null; return renderEditorBoard(); }
+    const mv = editor.legal.find(m => m.from === editor.selected && m.to === square);
+    if (mv) { editor.added.push(mv.san); editor.marks.push(''); return loadEditorPosition(); }
+    if (editor.legal.some(m => m.from === square)) { editor.selected = square; return renderEditorBoard(); }
+    editor.selected = null; return renderEditorBoard();
+  }
+  if (editor.legal.some(m => m.from === square)) { editor.selected = square; renderEditorBoard(); }
+}
+
+/** Reload the server's view of everything and land on `select(data)`'s opening/line, if it finds one.
+ *  Indices are clamped afterwards: whatever was just deleted may have been the one they pointed at. */
+async function reload(select) {
   data = await (await fetch('/api/data')).json();
   notes = data.notes || {};
-  closeBranch();
+  const target = select ? select(data) : null;
+  if (target) { oi = target.oi; li = target.li; }
+  oi = Math.min(Math.max(oi, 0), data.openings.length - 1);
+  li = Math.min(Math.max(li, 0), data.openings[oi].lines.length - 1);
+  ply = 0;
+  closeEditor();
   fillSelects();
-  const idx = data.openings[oi].lines.findIndex(l => l.id === savedId);
-  if (idx >= 0) { li = idx; ply = 0; $('line').value = li; }
   renderEditor();
 }
 
-$('opening').onchange = e => { closeBranch(); oi=+e.target.value; li=0; ply=0; fillSelects(); renderEditor(); };
-$('line').onchange = e => { closeBranch(); li=+e.target.value; ply=0; renderEditor(); };
+async function saveBranch() {
+  if (!editor || editor.added.length === 0) { $('branchMsg').textContent = '수를 최소 1개 두세요'; return; }
+  const name = $('branchName').value.trim();
+  if (!name) { $('branchMsg').textContent = '이름을 입력하세요'; return; }
+  const body = { openingId: data.openings[oi].id, id: editor.editingId ?? undefined, name, kind: $('branchKind').value, branchPly: editor.path.length, moves: [...editor.path, ...gradedMoves()] };
+  const res = await (await fetch('/api/branch', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })).json();
+  if (!res.ok) { $('branchMsg').textContent = res.error || '저장 실패'; return; }
+  await reload((d) => {
+    const li2 = d.openings[oi].lines.findIndex(l => l.id === res.branch.id);
+    return li2 >= 0 ? { oi, li: li2 } : null;
+  });
+}
+
+async function saveOpening() {
+  if (!editor || editor.added.length === 0) { $('openingMsg').textContent = '메인라인 수를 최소 1개 두세요'; return; }
+  const name = $('openingName').value.trim();
+  if (!name) { $('openingMsg').textContent = '오프닝 이름을 입력하세요'; return; }
+  const body = {
+    name,
+    eco: $('openingEco').value,
+    category: $('openingCategory').value,
+    sideToLearn: $('openingSide').value,
+    description: $('openingDesc').value,
+    lineName: $('openingLineName').value,
+    moves: gradedMoves(),
+  };
+  const res = await (await fetch('/api/opening', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })).json();
+  if (!res.ok) { $('openingMsg').textContent = res.error || '저장 실패'; return; }
+  await reload((d) => {
+    const oi2 = d.openings.findIndex(o => o.id === res.opening.id);
+    return oi2 >= 0 ? { oi: oi2, li: 0 } : null;
+  });
+}
+
+$('opening').onchange = e => { closeEditor(); oi=+e.target.value; li=0; ply=0; fillSelects(); renderEditor(); };
+$('line').onchange = e => { closeEditor(); li=+e.target.value; ply=0; renderEditor(); };
 $('prev').onclick = () => { if(ply>0){ply--; renderEditor();} };
 $('next').onclick = () => { if(ply<line().moves.length-1){ply++; renderEditor();} };
 $('addRef').onclick = () => { editRefs.push({label:'',url:'',kind:'explorer'}); renderRefs(editRefs); };
 $('save').onclick = save;
 $('newBranch').onclick = enterBranch;
-$('branchCancel').onclick = closeBranch;
-$('branchUndo').onclick = () => { if (branch && branch.newMoves.length) { branch.newMoves.pop(); loadBranchPosition(); } };
+$('editBranch').onclick = editBranch;
+$('newOpening').onclick = enterOpening;
+const cancelEditor = () => { closeEditor(); renderEditor(); };
+$('branchCancel').onclick = cancelEditor;
+$('openingCancel').onclick = cancelEditor;
+const undo = () => { if (editor && editor.added.length) { editor.added.pop(); editor.marks.pop(); loadEditorPosition(); } };
+$('branchUndo').onclick = undo;
+$('openingUndo').onclick = undo;
 $('branchSave').onclick = saveBranch;
-$('deleteBranch').onclick = async () => {
+$('openingSave').onclick = saveOpening;
+// The board follows the side being taught, which for a new opening is whatever the form says.
+$('openingSide').onchange = () => { if (editor) renderEditorBoard(); };
+async function manage(path, body, select) {
+  const res = await (await fetch(path, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })).json();
+  if (!res.ok) { $('saveMsg').textContent = '실패: ' + (res.error || ''); return; }
+  await reload(select);
+}
+
+$('renameLine').onclick = () => {
   const l = line();
-  if (!l.authored) return;
-  if (!confirm(`갈래 "${l.name}"를 삭제할까요? (설명도 함께 지워집니다)`)) return;
-  const res = await (await fetch('/api/branch/delete', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ openingId: data.openings[oi].id, id: l.id }) })).json();
-  if (!res.ok) { $('saveMsg').textContent = '삭제 실패: ' + (res.error||''); return; }
-  data = await (await fetch('/api/data')).json();
-  notes = data.notes || {};
-  li = 0; ply = 0;
-  fillSelects();
-  renderEditor();
+  const name = prompt('라인의 새 이름', l.name);
+  if (name && name.trim() && name !== l.name) {
+    manage('/api/rename', { openingId: data.openings[oi].id, lineId: l.id, name }, () => ({ oi, li }));
+  }
+};
+$('renameOpening').onclick = () => {
+  const o = data.openings[oi];
+  const name = prompt('오프닝의 새 이름', o.name);
+  if (name && name.trim() && name !== o.name) {
+    manage('/api/rename', { openingId: o.id, name }, () => ({ oi, li }));
+  }
+};
+$('deleteLine').onclick = () => {
+  const l = line();
+  if (!confirm(`라인 "${l.name}"을 삭제할까요?\n\n${$('manageHint').textContent}`)) return;
+  manage('/api/delete', { openingId: data.openings[oi].id, lineId: l.id }, () => ({ oi, li: 0 }));
+};
+$('deleteOpening').onclick = () => {
+  const o = data.openings[oi];
+  if (!confirm(`오프닝 "${o.name}"을 통째로 삭제할까요? 라인·갈래·설명이 모두 사라집니다.\n\n${$('manageHint').textContent}`)) return;
+  manage('/api/delete', { openingId: o.id }, () => ({ oi: 0, li: 0 }));
 };
 
 (async () => {
   data = await (await fetch('/api/data')).json();
   notes = data.notes || {};
+  const cats = $('openingCategory');
+  (data.categories || []).forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; cats.appendChild(o); });
   fillSelects();
   renderEditor();
-  $('status').textContent = `${data.openings.length}개 오프닝`;
 })();
 </script>
 </body>

@@ -1,1 +1,27 @@
-{}
+{
+  "french-defense": [
+    {
+      "id": "be3-10",
+      "name": "성급한 6. Be3",
+      "kind": "punish",
+      "branchPly": 10,
+      "description": "",
+      "moves": [
+        "e4",
+        "e6",
+        "d4",
+        "d5",
+        "e5",
+        "c5",
+        "c3",
+        "Nc6",
+        "Nf3",
+        "Qb6",
+        "Be3",
+        "Qxb2",
+        "Nbd2",
+        "Qxc3"
+      ]
+    }
+  ]
+}
