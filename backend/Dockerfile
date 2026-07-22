@@ -15,8 +15,10 @@ RUN ./gradlew --no-daemon clean bootJar \
 
 # ---- runtime stage: JRE + Stockfish ----
 FROM eclipse-temurin:21-jre
+# curl is here for the compose healthcheck against /health, not for the app itself.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         stockfish \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

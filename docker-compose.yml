@@ -34,8 +34,18 @@ services:
       # Container-network wiring — these override anything in backend/.env.
       VISION_SERVICE_URL: http://vision:8000
       STOCKFISH_PATH: /usr/games/stockfish
+    # Loopback by default, not 0.0.0.0: on a VPS, publishing 8080 to every interface would put the
+    # API next to Caddy rather than behind it — plain HTTP, and with the client address unproxied so
+    # the rate limiter cannot tell callers apart. Caddy reaches it over the compose network instead.
+    # Set BACKEND_BIND=0.0.0.0 (root .env) to reach it from a phone on the same LAN during dev.
     ports:
-      - "8080:8080"
+      - "${BACKEND_BIND:-127.0.0.1}:8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
   # `--profile tls` only. Needs CADDY_DOMAIN set (shell env or a root .env) and a DNS
   # record pointing at this host; Caddy then obtains and renews a Let's Encrypt cert.

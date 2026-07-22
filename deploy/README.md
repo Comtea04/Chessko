@@ -16,12 +16,23 @@ Secrets come from `backend/.env` (see `backend/.env` for the keys; OpenAI + Supa
 optional — without them only `/api/v1/analysis/commentary` returns 503).
 
 ```bash
-docker compose up --build          # API on http://<host>:8080
+docker compose up --build          # API on http://127.0.0.1:8080
+```
+
+The published port binds to **loopback only**. That is what a public host wants — Caddy reaches the
+container over the compose network, and nothing else can get to plain HTTP on 8080. To reach it from
+a phone on the same LAN while developing, publish it wider:
+
+```bash
+BACKEND_BIND=0.0.0.0 docker compose up -d     # or set it in ./.env
 ```
 
 Smoke test:
 
 ```bash
+curl -s http://localhost:8080/health
+# {"status":"ok"}
+
 curl -s http://localhost:8080/api/v1/analysis \
   -H 'content-type: application/json' \
   -d '{"fen":"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"}'
@@ -41,11 +52,40 @@ docker compose --profile tls up -d --build
 ```
 
 Caddy serves `https://api.yourdomain.com` → `backend:8080`. Once it's up, set the mobile
-app's `EXPO_PUBLIC_API_BASE_URL` to that HTTPS URL and drop the `ports: 8080` publish from
-`docker-compose.yml` if you don't want the plain-HTTP port exposed.
+app's `EXPO_PUBLIC_API_BASE_URL` to that HTTPS URL. Leave `BACKEND_BIND` unset so 8080 stays on
+loopback and every request arrives through Caddy.
+
+## Rate limiting
+
+The API has no accounts, so a public deployment is open to whoever finds the domain — and two
+endpoints are expensive: `/analysis/commentary` spends OpenAI credits per call, `/analysis/game`
+puts up to 200 positions through the engine pool. A token bucket per client address covers both.
+
+| Endpoint | Cost |
+| --- | --- |
+| `/api/v1/analysis`, `/api/v1/vision/*` | 1 |
+| `/api/v1/analysis/commentary` | 10 |
+| `/api/v1/analysis/game` | 20 |
+
+Default budget is 60 tokens per minute per client, so 60 analyses, or 6 commentary calls, or 3 game
+reviews. Over budget returns `429` with `Retry-After: 60`. `/health` is never counted.
+
+```bash
+CHESSKO_RATE_LIMIT_TOKENS_PER_MINUTE=120   # backend/.env
+CHESSKO_RATE_LIMIT_ENABLED=false           # local development
+```
+
+The client address comes from `X-Forwarded-For`, which Caddy sets. **If you ever publish 8080
+directly, set `CHESSKO_RATE_LIMIT_TRUST_FORWARDED_FOR=false`** — otherwise a caller can put any
+address in that header and never hit a limit.
+
+Limits are held in memory, per process. Running more than one API node would give each its own
+budget; that is the point at which this needs to move to something shared.
 
 ## Notes
 
+- **Health:** `GET /health` returns `{"status":"ok"}`; both containers have compose healthchecks,
+  so `docker compose ps` reports whether they are actually serving, not just running.
 - **Persistence:** enrolled vision themes are written to the `vision-data` volume; they
   survive restarts and image rebuilds.
 - **Stockfish tuning:** `STOCKFISH_POOL_SIZE` (default 4) × 64 MB hash each drives memory.
