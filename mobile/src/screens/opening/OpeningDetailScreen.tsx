@@ -6,8 +6,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ChessBoard } from '../../components/ChessBoard';
 import { EvalBar } from '../../components/EvalBar';
 import { QUALITY_STYLES } from '../../components/MoveQualityBadge';
-import { annotationsFor, evalCp, isNotable } from '../../data/openingAnnotations';
-import { plainSan, type LineKind, type OpeningLine } from '../../data/openings';
+import { annotationsFor, evalCp, isNotable, type MoveAnnotation } from '../../data/openingAnnotations';
+import { plainSan, type LineKind, type Opening, type OpeningLine } from '../../data/openings';
 import { getLine, getOpeningById } from '../../data/openingsRuntime';
 import { noteFor, type MoveNote } from '../../data/openingNotes';
 import { knownContinuations, lineForContinuation, lineTree } from '../../data/openingTree';
@@ -68,6 +68,21 @@ function tryMove(chess: Chess, from: Square, to: Square) {
 function moveLabel(ply: number, san: string): string {
   const number = Math.floor(ply / 2) + 1;
   return ply % 2 === 0 ? `${number}. ${san}` : `${number}... ${san}`;
+}
+
+/**
+ * Whether the move at `ply` leaves something on screen worth reading — our own commentary, or the
+ * engine naming a move it prefers. Exactly the two things that put the card below the board on
+ * screen, and the trainer holds for either: a card that appears and is swept away by the opponent's
+ * reply a moment later may as well not have been shown.
+ */
+function hasCommentary(
+  opening: Opening,
+  line: OpeningLine,
+  annotations: MoveAnnotation[],
+  ply: number
+): boolean {
+  return !!noteFor(opening, line, ply) || !!annotations[ply]?.betterSan;
 }
 
 const REFERENCE_ICON: Record<string, string> = {
@@ -170,12 +185,12 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   useEffect(() => {
     if (!opening || !line || finished || isUserTurn || wrongPosition || deviation) return;
     if (knownContinuations(opening, moves.slice(0, step)).length > 1) return;
-    if (step > 0 && noteFor(opening, line, step - 1)) return;
+    if (step > 0 && hasCommentary(opening, line, annotations, step - 1)) return;
     replyTimer.current = setTimeout(() => setStep((prev) => prev + 1), OPPONENT_REPLY_MS);
     return () => {
       if (replyTimer.current) clearTimeout(replyTimer.current);
     };
-  }, [opening, finished, isUserTurn, wrongPosition, deviation, step, line, moves]);
+  }, [opening, finished, isUserTurn, wrongPosition, deviation, step, line, moves, annotations]);
 
   const expected = useMemo(() => {
     const san = moves[step];
@@ -364,9 +379,10 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   // The commentary on the move that produced the current position.
   const note = step > 0 ? noteFor(opening, line, step - 1) : undefined;
 
-  // Opponent's turn, holding for the user to read a comment before advancing (matches the effect).
+  // Opponent's turn, holding for the user to read before advancing — same condition as the effect.
   const awaitingAdvance =
-    !isUserTurn && !finished && !wrongPosition && !deviation && forks.length <= 1 && !!note;
+    !isUserTurn && !finished && !wrongPosition && !deviation && forks.length <= 1 &&
+    step > 0 && hasCommentary(opening, line, annotations, step - 1);
 
   const legalTargets = selected
     ? displayed.moves({ square: selected, verbose: true }).map((move) => move.to as Square)
