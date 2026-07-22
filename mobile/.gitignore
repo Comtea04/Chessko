@@ -42,3 +42,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Local API base URL (see README) — machine-specific, not committed
+.env
