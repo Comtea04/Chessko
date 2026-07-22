@@ -24,6 +24,94 @@
       ]
     }
   ],
+  "kings-gambit": [
+    {
+      "id": "bc4-4",
+      "name": "2. Bc4",
+      "kind": "variation",
+      "branchPly": 4,
+      "description": "",
+      "moves": [
+        "e4",
+        "e5",
+        "f4",
+        "exf4",
+        "Bc4"
+      ]
+    },
+    {
+      "id": "h4-6",
+      "name": "키저리츠키 갬빗 메인라인",
+      "kind": "variation",
+      "branchPly": 6,
+      "description": "",
+      "moves": [
+        "e4",
+        "e5",
+        "f4",
+        "exf4",
+        "Nf3",
+        "g5",
+        "h4",
+        "g4",
+        "Ne5",
+        "Nf6",
+        "Bc4",
+        "d5",
+        "exd5",
+        "Bd6"
+      ]
+    },
+    {
+      "id": "h5-9",
+      "name": "흑의 미흡한 수비, 5... h5",
+      "kind": "punish",
+      "branchPly": 9,
+      "description": "",
+      "moves": [
+        "e4",
+        "e5",
+        "f4",
+        "exf4",
+        "Nf3",
+        "g5",
+        "h4",
+        "g4",
+        "Ne5",
+        "h5?",
+        "Bc4",
+        "Rh7",
+        "d4",
+        "d6",
+        "Nxf7",
+        "Rxf7",
+        "Bxf7+",
+        "Kxf7",
+        "Bxf4"
+      ]
+    },
+    {
+      "id": "nxg4-10",
+      "name": "이점이 없는 6. Nxg4",
+      "kind": "punish",
+      "branchPly": 10,
+      "description": "",
+      "moves": [
+        "e4",
+        "e5",
+        "f4",
+        "exf4",
+        "Nf3",
+        "g5",
+        "h4",
+        "g4",
+        "Ne5",
+        "Nf6",
+        "Nxg4?!",
+        "Nxe4"
+      ]
+    }
+  ],
   "authored": [
     {
       "id": "nc6-5",

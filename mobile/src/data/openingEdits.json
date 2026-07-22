@@ -1,4 +1,8 @@
 {
   "openings": {},
-  "lines": {}
+  "lines": {
+    "kings-gambit:main": {
+      "name": "메인라인 어셉티드"
+    }
+  }
 }
