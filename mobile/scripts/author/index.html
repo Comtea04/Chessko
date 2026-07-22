@@ -20,7 +20,12 @@
   .pc.b { color:#111; }
   .sq.sel { box-shadow: inset 0 0 0 4px var(--primary); }
   .sq.tgt { box-shadow: inset 0 0 0 3px rgba(52,82,217,.55); cursor:pointer; }
-  .sq { cursor:pointer; }
+  .sq { cursor:pointer; position:relative; }
+  .sq.from { box-shadow: inset 0 0 0 3px rgba(52,82,217,.30); }
+  /* Grade badge on the square the move landed on, the way the app and every online board show it. */
+  .grade { position:absolute; top:-6px; right:-6px; min-width:22px; height:22px; padding:0 4px;
+           border-radius:11px; border:2px solid #fff; color:#fff; font-size:12px; font-weight:800;
+           line-height:18px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.35); z-index:2; }
   .nav { display:flex; gap:8px; justify-content:center; margin-top:12px; }
   button { padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:14px; cursor:pointer; }
   button.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
@@ -139,6 +144,15 @@
 </main>
 <script>
 const GLYPH = { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' };
+// Same symbols and colours the app badges moves with (components/MoveQualityBadge.tsx).
+const QUALITY = {
+  brilliant:  { symbol:'!!', label:'탁월수', color:'#17a2a2' },
+  best:       { symbol:'!',  label:'좋은 수', color:'#2fae7a' },
+  good:       { symbol:'',   label:'정석 수', color:'#6b7280' },
+  inaccuracy: { symbol:'?!', label:'부정확', color:'#c98a1f' },
+  mistake:    { symbol:'?',  label:'실수',   color:'#e07b39' },
+  blunder:    { symbol:'??', label:'블런더', color:'#d9433f' },
+};
 const KINDS = ['explorer','study','article','book','video'];
 let data, oi=0, li=0, ply=0;
 let notes = {}; // local mirror of server notes
@@ -177,6 +191,15 @@ function renderBoard(fen, opts) {
         span.textContent = GLYPH[pc.toLowerCase()];
         sq.appendChild(span);
       }
+      if (opts.from === square) sq.classList.add('from');
+      if (opts.grade && opts.grade.square === square) {
+        const badge = document.createElement('span');
+        badge.className = 'grade';
+        badge.style.background = opts.grade.color;
+        badge.textContent = opts.grade.symbol;
+        badge.title = opts.grade.label;
+        sq.appendChild(badge);
+      }
       if (opts.onSquare) sq.onclick = () => opts.onSquare(square);
       board.appendChild(sq);
     }
@@ -214,10 +237,24 @@ let editRefs = [];
 function renderEditor() {
   const l = line();
   const san = l.moves[ply];
-  $('moveTitle').textContent = san ? `${moveLabel(ply, san)}` : '—';
+  $('moveTitle').innerHTML = '';
+  $('moveTitle').append(san ? moveLabel(ply, san) : '—');
+  if (san && q.symbol) {
+    const tag = document.createElement('span');
+    tag.className = 'grade';
+    tag.style.cssText = `position:static;background:${q.color};margin-left:8px;display:inline-block`;
+    tag.textContent = `${q.symbol} ${q.label}`;
+    $('moveTitle').append(tag);
+  }
   $('ply').textContent = `${ply+1} / ${l.moves.length}`;
   const fen = l.fens[ply];
-  renderBoard(fen);
+  const q = QUALITY[(l.qualities && l.qualities[ply]) || 'good'];
+  const sq = l.squares && l.squares[ply];
+  renderBoard(fen, {
+    from: sq && sq.from,
+    // 'good' is the unremarkable case — badging every ordinary book move would say nothing.
+    grade: sq && q.symbol ? { square: sq.to, ...q } : null,
+  });
   $('lichess').href = 'https://lichess.org/analysis/' + fen.replace(/ /g,'_');
   const note = currentNote();
   $('text').value = note.text || '';
@@ -236,8 +273,11 @@ function renderEditor() {
   l.moves.forEach((m, i) => {
     const el = document.createElement('span');
     const has = notes[l.key] && notes[l.key][i] && notes[l.key][i].text;
+    const mq = QUALITY[(l.qualities && l.qualities[i]) || 'good'];
     el.className = 'mv' + (i===ply?' cur':'') + (has?' has':'');
-    el.textContent = moveLabel(i, m);
+    el.textContent = moveLabel(i, m) + mq.symbol;
+    if (mq.symbol && i !== ply) { el.style.color = mq.color; el.style.fontWeight = '700'; }
+    el.title = mq.label;
     el.onclick = () => { ply=i; renderEditor(); };
     strip.appendChild(el);
   });

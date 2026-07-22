@@ -61,15 +61,41 @@ async function allOpenings() {
     }));
 }
 
-/** Position (FEN) after each half-move of a line, so the board can show the move being annotated. */
-function fensFor(sans) {
+/**
+ * Position after each half-move, plus the squares the move ran between — the board shows the FEN and
+ * marks the destination, which is where a grade badge belongs.
+ */
+function replay(sans) {
   const chess = new Chess();
   const fens = [];
+  const squares = [];
   for (const san of sans) {
-    chess.move(san);
+    const move = chess.move(san);
     fens.push(chess.fen());
+    squares.push({ from: move.from, to: move.to });
   }
-  return fens;
+  return { fens, squares };
+}
+
+/**
+ * Stockfish's baked grades, re-read like `openings.ts` so a fresh `npm run gen:openings` shows up on
+ * a refresh. The generator has already applied any author-pinned suffix over the engine's own
+ * verdict, so one lookup covers both; lines it has never seen (authored branches) fall back to the
+ * suffix alone, exactly as `annotationsFor` does in the app.
+ */
+const ANNOTATIONS_URL = new URL('../src/data/openingAnnotations.generated.ts', import.meta.url);
+let cachedAnnotations = null;
+async function loadAnnotations() {
+  try {
+    const { mtimeMs } = await stat(fileURLToPath(ANNOTATIONS_URL));
+    if (!cachedAnnotations || cachedAnnotations.mtimeMs !== mtimeMs) {
+      const mod = await import(`${ANNOTATIONS_URL.href}?v=${mtimeMs}`);
+      cachedAnnotations = { mtimeMs, data: mod.OPENING_ANNOTATIONS };
+    }
+    return cachedAnnotations.data;
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -84,8 +110,9 @@ async function assertLegal(moves) {
 }
 
 async function buildData(notes) {
-  const { lineKey, plainSan } = await loadOpenings();
+  const { lineKey, plainSan, authoredQuality } = await loadOpenings();
   const authoredIds = new Set((await readAuthored()).map((o) => o.id));
+  const annotations = await loadAnnotations();
   const openings = (await allOpenings()).map((o) => ({
     id: o.id,
     name: o.name,
@@ -96,16 +123,21 @@ async function buildData(notes) {
     authored: authoredIds.has(o.id),
     lines: withDepth(o.lines.map((l) => {
       const moves = l.moves.map(plainSan);
+      const key = lineKey(o.id, l.id);
+      const baked = annotations[key];
+      const { fens, squares } = replay(moves);
       return {
         id: l.id,
         name: l.name,
         kind: l.kind,
         branchPly: l.branchPly ?? 0,
-        key: lineKey(o.id, l.id),
+        key,
         moves,
         // As written, grade suffixes and all — what the branch editor reloads to edit a line.
         graded: l.moves,
-        fens: fensFor(moves),
+        fens,
+        squares,
+        qualities: l.moves.map((san, i) => baked?.[i]?.quality ?? authoredQuality(san) ?? 'good'),
         authored: l.authored ?? false,
       };
     })),
