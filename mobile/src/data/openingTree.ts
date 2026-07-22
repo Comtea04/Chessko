@@ -34,6 +34,43 @@ export function currentLine(opening: Opening, path: string[]): OpeningLine | nul
   return matching.find((line) => line.kind === 'main') ?? matching[0];
 }
 
+/**
+ * The lines as a nesting, for the line picker: a line's parent is the deepest other line it branches
+ * off — the one it still agrees with at `branchPly`. Read off the moves like everything else here, so
+ * adding a line to `openings.ts` puts it in the right place in the tree with no extra bookkeeping.
+ * Returned depth-first in list order, so the entries can be rendered as an indented list.
+ */
+export function lineTree(opening: Opening, lines: OpeningLine[] = opening.lines): Array<{ line: OpeningLine; depth: number }> {
+  const parentOf = (line: OpeningLine): OpeningLine | null => {
+    const trunk = plainMoves(line).slice(0, line.branchPly);
+    let parent: OpeningLine | null = null;
+    for (const other of lines) {
+      if (other.id === line.id || other.branchPly >= line.branchPly) continue;
+      if (!isPrefix(trunk, plainMoves(other))) continue;
+      if (!parent || other.branchPly > parent.branchPly) parent = other;
+    }
+    return parent;
+  };
+
+  const children = new Map<string | null, OpeningLine[]>();
+  for (const line of lines) {
+    const key = parentOf(line)?.id ?? null;
+    const bucket = children.get(key);
+    if (bucket) bucket.push(line);
+    else children.set(key, [line]);
+  }
+
+  const out: Array<{ line: OpeningLine; depth: number }> = [];
+  const walk = (key: string | null, depth: number) => {
+    for (const line of children.get(key) ?? []) {
+      out.push({ line, depth });
+      walk(line.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return out;
+}
+
 /** The known next moves from `path`, each with the lines that play it — i.e. the branches offered here. */
 export function knownContinuations(opening: Opening, path: string[]): Array<{ san: string; lines: OpeningLine[] }> {
   const byMove = new Map<string, OpeningLine[]>();

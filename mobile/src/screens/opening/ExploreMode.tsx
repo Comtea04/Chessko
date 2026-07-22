@@ -36,17 +36,20 @@ function formatEval(cp: number | null): string {
  */
 export function ExploreMode({
   opening,
+  perspective,
   startFen,
   engine,
   onExit,
 }: {
   opening: Opening;
+  /** The side the user is playing — the study screen's, which may be flipped from the opening's own. */
+  perspective: 'w' | 'b';
   startFen: string;
   engine: Engine;
   onExit: () => void;
 }) {
-  const flipped = opening.sideToLearn === 'b';
-  const userColor = opening.sideToLearn;
+  const flipped = perspective === 'b';
+  const userColor = perspective;
   const chessRef = useRef(new Chess(startFen));
   const chess = chessRef.current;
 

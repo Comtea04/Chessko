@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Linking, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Chess, type Square } from 'chess.js';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ChessBoard } from '../../components/ChessBoard';
 import { EvalBar } from '../../components/EvalBar';
-import { MoveQualityBadge, QUALITY_STYLES } from '../../components/MoveQualityBadge';
-import { annotationsFor, evalCp, formatEval, isNotable } from '../../data/openingAnnotations';
+import { QUALITY_STYLES } from '../../components/MoveQualityBadge';
+import { annotationsFor, evalCp, isNotable } from '../../data/openingAnnotations';
 import { plainSan, type LineKind, type OpeningLine } from '../../data/openings';
 import { getLine, getOpeningById } from '../../data/openingsRuntime';
 import { noteFor, type MoveNote } from '../../data/openingNotes';
-import { knownContinuations, lineForContinuation } from '../../data/openingTree';
+import { knownContinuations, lineForContinuation, lineTree } from '../../data/openingTree';
 import { useSavedOpenings } from '../../storage/useSavedOpenings';
 import { useEngine } from '../../engine/EngineProvider';
 import { assessDeviation, type DeviationAssessment } from '../../engine/deviation';
@@ -105,18 +105,24 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   const { engine } = useEngine();
 
   const [lineId, setLineId] = useState(opening?.lines[0]?.id ?? '');
+  // Which side the user is playing. An opening is curated for one colour, but every line has two
+  // sides to it: the Two Knights studied as white is the same moves black has to know. Flipping the
+  // board hands the line's other half to the user and auto-plays what they were playing before.
+  const [perspective, setPerspective] = useState<'w' | 'b'>(opening?.sideToLearn ?? 'w');
   const line: OpeningLine | undefined = opening && getLine(opening, lineId);
   const saved = opening ? isSaved(opening.id) : false;
 
-  // The nav header carries the identity: opening name as the title, current line as the subtitle
-  // (it updates as the user branches), save on the right, and just the back button on the left.
+  // The nav header carries the identity: opening name as the title, the full tree path as the
+  // subtitle (it updates as the user branches), save on the right, and just the back button on the left.
   useLayoutEffect(() => {
     if (!opening || !line) return;
     navigation.setOptions({
       headerTitle: () => (
         <View style={styles.navHeader}>
           <Text style={styles.navTitle} numberOfLines={1}>{opening.name}</Text>
-          <Text style={styles.navSubtitle} numberOfLines={1}>{line.name}</Text>
+          <Text style={styles.navSubtitle} numberOfLines={1}>
+            {opening.category} › {opening.name} › {line.name}
+          </Text>
         </View>
       ),
       headerRight: () => (
@@ -131,7 +137,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   const annotations = useMemo(() => (opening && line ? annotationsFor(opening, line) : []), [opening, line]);
   const moves = useMemo(() => line?.moves.map(plainSan) ?? [], [line]);
   // 0 when the user studies white, 1 when black: the parity of the steps they play themselves.
-  const userParity = opening?.sideToLearn === 'b' ? 1 : 0;
+  const userParity = perspective === 'b' ? 1 : 0;
 
   const [step, setStep] = useState(0);
   const [selected, setSelected] = useState<Square | null>(null);
@@ -140,6 +146,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   // Off-book move under engine review + an active free-play session, once the user accepts one.
   const [deviation, setDeviation] = useState<PendingDeviation | null>(null);
   const [explore, setExplore] = useState<{ startFen: string } | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const flash = useRef(new Animated.Value(0)).current;
   const revertTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -280,6 +287,7 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
 
   const selectLine = useCallback((id: string) => {
     setLineId(id);
+    setPickerOpen(false);
     jumpTo(0);
   }, [jumpTo]);
 
@@ -292,10 +300,18 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   }
 
   if (explore && engine) {
-    return <ExploreMode opening={opening} startFen={explore.startFen} engine={engine} onExit={() => setExplore(null)} />;
+    return (
+      <ExploreMode
+        opening={opening}
+        perspective={perspective}
+        startFen={explore.startFen}
+        engine={engine}
+        onExit={() => setExplore(null)}
+      />
+    );
   }
 
-  const flipped = opening.sideToLearn === 'b';
+  const flipped = perspective === 'b';
 
   const shownFen = deviation ? deviation.fen : wrongPosition ? wrongPosition.fen : null;
   const displayed = shownFen ? new Chess(shownFen) : position;
@@ -337,15 +353,20 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
     setSelected(null);
   };
 
-  // At an opponent branch point, the replies the user can pick between (each names the line it enters).
-  const opponentReplies = !isUserTurn && !finished && !deviation && !wrongPosition
+  // The known moves on offer here, each naming the line it enters. Two cases: the opponent is to move
+  // and has more than one book reply, or the line has run out at a fork — lines like 투 나이츠 디펜스
+  // stop at the tabiya their variations branch from, and carry on through one of those.
+  const forks = (finished || !isUserTurn) && !deviation && !wrongPosition
     ? knownContinuations(opening, moves.slice(0, step))
     : [];
+  const atFork = finished && forks.length > 0;
+
+  // The commentary on the move that produced the current position.
+  const note = step > 0 ? noteFor(opening, line, step - 1) : undefined;
 
   // Opponent's turn, holding for the user to read a comment before advancing (matches the effect).
   const awaitingAdvance =
-    !isUserTurn && !finished && !wrongPosition && !deviation && opponentReplies.length <= 1 &&
-    step > 0 && !!noteFor(opening, line, step - 1);
+    !isUserTurn && !finished && !wrongPosition && !deviation && forks.length <= 1 && !!note;
 
   const legalTargets = selected
     ? displayed.moves({ square: selected, verbose: true }).map((move) => move.to as Square)
@@ -357,44 +378,29 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.breadcrumb} numberOfLines={1}>
-          {opening.category} › {opening.name} › {line.name}
-        </Text>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.lineTabs}>
-          {opening.lines.filter((candidate) => !candidate.authored).map((candidate) => {
-            const active = candidate.id === line.id;
-            const kind = LINE_KINDS[candidate.kind];
-            return (
-              <Pressable
-                key={candidate.id}
-                style={[styles.lineTab, active && { borderColor: kind.color, backgroundColor: colors.surface }]}
-                onPress={() => selectLine(candidate.id)}
-              >
-                <View style={[styles.kindDot, { backgroundColor: kind.color }]}>
-                  <Text style={styles.kindDotText}>{kind.label}</Text>
-                </View>
-                <Text style={[styles.lineTabText, active && styles.lineTabTextActive]}>{candidate.name}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        <View style={styles.lineCard}>
-          <View style={styles.lineCardHeader}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+        <View style={styles.pickerRow}>
+          <Pressable style={styles.linePicker} onPress={() => setPickerOpen(true)}>
             <View style={[styles.kindDot, { backgroundColor: LINE_KINDS[line.kind].color }]}>
               <Text style={styles.kindDotText}>{LINE_KINDS[line.kind].label}</Text>
             </View>
-            <Text style={styles.lineCardTitle}>{line.name}</Text>
-          </View>
-          <Text style={styles.lineDescription}>{line.description}</Text>
-          {line.branchPly > 0 && (
-            <Text style={styles.branchNote}>
-              메인라인에서 {Math.floor(line.branchPly / 2) + 1}수째 {line.branchPly % 2 === 0 ? '백' : '흑'}의 수부터 갈라집니다.
-            </Text>
-          )}
+            <Text style={styles.linePickerText} numberOfLines={1}>{line.name}</Text>
+            <Text style={styles.linePickerChevron}>▾</Text>
+          </Pressable>
+          {/* Flipping the board swaps which half of the line the user plays — the same moves, learned
+              from the other side. Every line has both, so this needs no per-opening data. */}
+          <Pressable style={styles.flipButton} onPress={() => setPerspective((side) => (side === 'w' ? 'b' : 'w'))}>
+            <Text style={styles.flipButtonText}>{flipped ? '흑' : '백'} ⇅</Text>
+          </Pressable>
         </View>
+
+        {/* The line's name and kind are on the picker above and in the nav subtitle, so only the move
+            this line branches off — which nothing else on the screen says — gets a line here. */}
+        {line.branchPly > 0 && (
+          <Text style={styles.branchNote}>
+            {moveLabel(line.branchPly, plainSan(line.moves[line.branchPly]))}부터 갈라지는 라인입니다.
+          </Text>
+        )}
 
         <View style={styles.boardRow}>
           <EvalBar cp={barCp} flipped={flipped} />
@@ -409,35 +415,32 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
           />
         </View>
 
-        <View style={styles.stepCard}>
-          {step > 0 && previous && (
-            <View style={styles.moveBlock}>
-              <View style={styles.moveHeader}>
-                <Text style={styles.moveCaption}>직전 수</Text>
-                <Text style={styles.moveSan}>{moveLabel(step - 1, moves[step - 1])}</Text>
-                {isNotable(previous.quality) && <MoveQualityBadge quality={previous.quality} withLabel />}
-                {formatEval(previous) && <Text style={styles.evalText}>{formatEval(previous)}</Text>}
-              </View>
-              <NoteView note={noteFor(opening, line, step - 1)} />
-              {previous.betterSan && (
-                <Text style={styles.betterText}>엔진이 더 좋다고 보는 수: {previous.betterSan}</Text>
-              )}
-            </View>
-          )}
+        {/* Only what the rest of the screen doesn't already say. The move itself and its quality mark
+            are on the strip below; its evaluation is on the bar beside the board. */}
+        {(note || previous?.betterSan || (finished && !atFork) || awaitingAdvance) && (
+          <View style={styles.stepCard}>
+            <NoteView note={note} />
+            {previous?.betterSan && (
+              <Text style={styles.betterText}>엔진이 더 좋다고 보는 수: {previous.betterSan}</Text>
+            )}
+            {finished && !atFork && (
+              <Text style={styles.finishedText}>수순 완료! {line.name} {moves.length}수를 모두 따라갔습니다.</Text>
+            )}
+            {awaitingAdvance && (
+              <Text style={styles.opponentHint}>상대 차례 — 다음 ▶ 을 눌러 응수를 봅니다</Text>
+            )}
+          </View>
+        )}
 
-          {finished && (
-            <Text style={styles.finishedText}>수순 완료! {line.name} {moves.length}수를 모두 따라갔습니다.</Text>
-          )}
-          {awaitingAdvance && (
-            <Text style={styles.opponentHint}>상대 차례 — 다음 ▶ 을 눌러 응수를 봅니다</Text>
-          )}
-        </View>
-
-        {opponentReplies.length > 1 && (
+        {(atFork || forks.length > 1) && (
           <View style={styles.repliesCard}>
-            <Text style={styles.repliesLabel}>상대의 응수를 선택해 보세요 (보드에서 직접 둬도 됩니다)</Text>
+            <Text style={styles.repliesLabel}>
+              {atFork
+                ? '여기서 라인이 갈라집니다 — 이어서 공부할 라인을 고르세요 (보드에서 직접 둬도 됩니다)'
+                : '상대의 응수를 선택해 보세요 (보드에서 직접 둬도 됩니다)'}
+            </Text>
             <View style={styles.repliesRow}>
-              {opponentReplies.map((reply) => {
+              {forks.map((reply) => {
                 const target = lineForContinuation(opening, moves.slice(0, step), reply.san);
                 return (
                   <Pressable key={reply.san} style={styles.replyChip} onPress={() => playContinuation(reply.san)}>
@@ -505,22 +508,65 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
           })}
         </View>
 
-        <View style={styles.navRow}>
-          <Pressable style={[styles.navButton, step === 0 && styles.navButtonDisabled]} onPress={goPrevious} disabled={step === 0}>
-            <Text style={styles.navButtonText}>◀ 이전</Text>
-          </Pressable>
-          <Pressable style={styles.navButton} onPress={() => jumpTo(0)}>
-            <Text style={styles.navButtonText}>처음부터</Text>
-          </Pressable>
-          <Pressable style={[styles.navButton, finished && styles.navButtonDisabled]} onPress={goNext} disabled={finished}>
-            <Text style={styles.navButtonText}>다음 ▶</Text>
-          </Pressable>
-        </View>
-
         <Pressable style={styles.analyzeButton} onPress={() => navigation.navigate('Analysis', { initialFen: displayed.fen() })}>
           <Text style={styles.analyzeButtonText}>이 포지션 분석하기</Text>
         </Pressable>
       </ScrollView>
+
+      {/* Stepping through the line is the whole point of the screen, so the controls sit outside the
+          scroll view — "다음 ▶" is always at the bottom of the screen, never scrolled off. */}
+      <View style={styles.navRow}>
+        <Pressable style={[styles.navButton, step === 0 && styles.navButtonDisabled]} onPress={goPrevious} disabled={step === 0}>
+          <Text style={styles.navButtonText}>◀ 이전</Text>
+        </Pressable>
+        <Pressable style={styles.navButton} onPress={() => jumpTo(0)}>
+          <Text style={styles.navButtonText}>처음부터</Text>
+        </Pressable>
+        {/* At a fork the line has no next move of its own, so "다음" takes the first branch — the chips
+            above are there for the others. */}
+        <Pressable
+          style={[styles.navButton, finished && !atFork && styles.navButtonDisabled]}
+          onPress={atFork ? () => playContinuation(forks[0].san) : goNext}
+          disabled={finished && !atFork}
+        >
+          <Text style={styles.navButtonText}>다음 ▶</Text>
+        </Pressable>
+      </View>
+
+      {/* The lines form a tree — each branches off the one above it — so the picker shows that nesting
+          rather than a flat list. Authored branches stay out of it; those are found by playing into them. */}
+      <Modal visible={pickerOpen} transparent animationType="slide" onRequestClose={() => setPickerOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setPickerOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>{opening.name} 라인</Text>
+            <ScrollView>
+              {lineTree(opening, opening.lines.filter((candidate) => !candidate.authored)).map(({ line: candidate, depth }) => {
+                const kind = LINE_KINDS[candidate.kind];
+                const active = candidate.id === line.id;
+                return (
+                  <Pressable
+                    key={candidate.id}
+                    style={[styles.treeRow, { paddingLeft: spacing.md + depth * spacing.lg }, active && styles.treeRowActive]}
+                    onPress={() => selectLine(candidate.id)}
+                  >
+                    <View style={[styles.kindDot, { backgroundColor: kind.color }]}>
+                      <Text style={styles.kindDotText}>{kind.label}</Text>
+                    </View>
+                    <Text style={[styles.treeName, active && styles.treeNameActive]} numberOfLines={1}>
+                      {candidate.name}
+                    </Text>
+                    {candidate.branchPly > 0 && (
+                      <Text style={styles.treeMove}>
+                        {moveLabel(candidate.branchPly, plainSan(candidate.moves[candidate.branchPly]))}
+                      </Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Animated.View pointerEvents="none" style={[styles.wrongFlash, { opacity: flash }]} />
     </SafeAreaView>
@@ -532,11 +578,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  scroll: {
+    flex: 1,
+  },
   container: {
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
-    paddingBottom: spacing.xxl,
     gap: spacing.md,
   },
   notFound: {
@@ -578,11 +626,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     width: '100%',
   },
-  breadcrumb: {
-    ...typography.caption,
-    color: colors.textMuted,
-    width: '100%',
-  },
   opponentHint: {
     ...typography.caption,
     color: colors.primary,
@@ -605,11 +648,27 @@ const styles = StyleSheet.create({
   saveButtonTextActive: {
     color: colors.surface,
   },
-  lineTabs: {
+  pickerRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
+  },
+  flipButton: {
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
-  lineTab: {
+  flipButtonText: {
+    ...typography.caption,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  linePicker: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
@@ -620,6 +679,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
+  linePickerText: {
+    ...typography.caption,
+    flex: 1,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  linePickerChevron: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  modalCard: {
+    maxHeight: '70%',
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radius.md,
+    borderTopRightRadius: radius.md,
+    paddingVertical: spacing.md,
+  },
+  modalTitle: {
+    ...typography.caption,
+    color: colors.textMuted,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  treeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingRight: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  treeRowActive: {
+    backgroundColor: colors.primarySoft,
+  },
+  treeName: {
+    ...typography.body,
+    flex: 1,
+    color: colors.text,
+  },
+  treeNameActive: {
+    fontWeight: '700',
+  },
+  treeMove: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
   kindDot: {
     borderRadius: radius.sm,
     paddingHorizontal: 5,
@@ -629,31 +738,6 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontSize: 10,
     fontWeight: '800',
-  },
-  lineTabText: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-  lineTabTextActive: {
-    color: colors.text,
-    fontWeight: '700',
-  },
-  lineCard: {
-    width: '100%',
-    gap: spacing.xs,
-  },
-  lineCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  lineCardTitle: {
-    ...typography.heading,
-    color: colors.text,
-  },
-  lineDescription: {
-    ...typography.body,
-    color: colors.text,
   },
   repliesCard: {
     backgroundColor: colors.surface,
@@ -691,6 +775,7 @@ const styles = StyleSheet.create({
   branchNote: {
     ...typography.caption,
     color: colors.textMuted,
+    width: '100%',
   },
   stepCard: {
     width: '100%',
@@ -698,31 +783,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.sm,
-  },
-  moveBlock: {
-    gap: 2,
-  },
-  moveHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  moveCaption: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-  moveSan: {
-    ...typography.heading,
-    color: colors.text,
-  },
-  moveSanNext: {
-    color: colors.primaryDark,
-  },
-  evalText: {
-    ...typography.caption,
-    fontWeight: '700',
-    color: colors.text,
   },
   noteBlock: {
     gap: spacing.xs,
@@ -839,7 +899,13 @@ const styles = StyleSheet.create({
   },
   navRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   navButton: {
     borderWidth: 1,
