@@ -1,15 +1,18 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Chessko",
+    "slug": "chessko",
+    "scheme": "chessko",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.comtea04.chessko"
     },
     "android": {
+      "package": "com.comtea04.chessko",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -25,7 +28,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "체스판 스크린샷을 선택하기 위해 사진 보관함 접근 권한이 필요합니다."
+          "photosPermission": "체스판 스크린샷을 선택하기 위해 사진 보관함 접근 권한이 필요합니다.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ]
     ]

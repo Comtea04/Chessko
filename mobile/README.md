@@ -31,6 +31,37 @@ EXPO_PUBLIC_API_BASE_URL=http://localhost:8080
 
 ---
 
+## 출시 빌드 (EAS)
+
+```bash
+npm i -g eas-cli && eas login
+eas init                                  # 최초 1회, EAS 프로젝트 생성
+eas build --platform android --profile preview      # APK — 직접 설치해서 확인
+eas build --platform android --profile production   # AAB — 플레이 콘솔 업로드용
+```
+
+| 프로필 | 산출물 | 용도 |
+| --- | --- | --- |
+| `development` | APK (dev client) | 네이티브 모듈 디버깅 |
+| `preview` | APK | 기기에 바로 설치해 확인 |
+| `production` | AAB | 플레이 콘솔 업로드 |
+
+`versionCode`는 EAS가 원격으로 관리하며 프로덕션 빌드마다 자동 증가합니다(`appVersionSource: "remote"`). 사용자에게 보이는 버전은 `app.json`의 `version`입니다.
+
+**`EXPO_PUBLIC_API_BASE_URL`은 빌드 시점에 번들에 박힙니다.** 로컬 `.env`는 클라우드 빌드에 올라가지 않으므로, 백엔드를 붙이려면 EAS에 환경 변수를 등록하거나 `eas.json`의 해당 프로필 `env`에 넣어야 합니다.
+
+```bash
+eas env:create --name EXPO_PUBLIC_API_BASE_URL --value https://api.yourdomain.com
+```
+
+설정하지 않으면 `http://localhost:8080`으로 떨어져 **분석·복기·스캔만 실패**하고, 오프닝 학습·퍼즐·연습은 정상 동작합니다. 백엔드 없이 먼저 테스트를 돌릴 거라면 그대로 둬도 됩니다.
+
+### 권한
+
+`expo-image-picker`는 기본적으로 `RECORD_AUDIO`와 `CAMERA`를 추가합니다(동영상 촬영을 지원하기 때문). 이 앱은 **저장된 스크린샷만 고르므로** 둘 다 `false`로 꺼두었습니다 — 체스 앱이 마이크 권한을 요구하면 사용자도 의아하고, 플레이 데이터 보안 양식에도 신고해야 합니다.
+
+---
+
 ## 화면 구성
 
 ```text
