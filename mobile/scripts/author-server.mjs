@@ -374,7 +374,7 @@ const server = createServer(async (req, res) => {
         name,
         eco: (body.eco ?? '').trim(),
         category: body.category,
-        sideToLearn: body.sideToLearn === 'b' ? 'b' : 'w',
+        sideToLearn: body.sideToLearn === 'b' || body.sideToLearn === 'both' ? body.sideToLearn : 'w',
         description: (body.description ?? '').trim(),
         lines: [{ id: 'main', name: lineName, kind: 'main', branchPly: 0, description: '', moves }],
       };

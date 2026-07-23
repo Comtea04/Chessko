@@ -7,7 +7,7 @@ import { ChessBoard } from '../../components/ChessBoard';
 import { EvalBar } from '../../components/EvalBar';
 import { QUALITY_STYLES } from '../../components/MoveQualityBadge';
 import { annotationsFor, evalCp, isNotable, type MoveAnnotation } from '../../data/openingAnnotations';
-import { plainSan, type LineKind, type Opening, type OpeningLine } from '../../data/openings';
+import { defaultSide, plainSan, type LineKind, type Opening, type OpeningLine } from '../../data/openings';
 import { getLine, getOpeningById } from '../../data/openingsRuntime';
 import { noteFor, type MoveNote } from '../../data/openingNotes';
 import { knownContinuations, lineForContinuation, lineTree } from '../../data/openingTree';
@@ -120,10 +120,12 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
   const { engine } = useEngine();
 
   const [lineId, setLineId] = useState(opening?.lines[0]?.id ?? '');
-  // Which side the user is playing. An opening is curated for one colour, but every line has two
-  // sides to it: the Two Knights studied as white is the same moves black has to know. Flipping the
-  // board hands the line's other half to the user and auto-plays what they were playing before.
-  const [perspective, setPerspective] = useState<'w' | 'b'>(opening?.sideToLearn ?? 'w');
+  // Which side the user is playing. Every line has two sides to it — the Two Knights studied as
+  // white is the same moves black has to know — so this starts from the row the opening was opened
+  // from (both-sides openings sit in both) and flipping the board hands over the line's other half.
+  const [perspective, setPerspective] = useState<'w' | 'b'>(
+    route.params.side ?? (opening ? defaultSide(opening) : 'w')
+  );
   const line: OpeningLine | undefined = opening && getLine(opening, lineId);
   const saved = opening ? isSaved(opening.id) : false;
 

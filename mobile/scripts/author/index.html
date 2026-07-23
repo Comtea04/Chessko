@@ -129,7 +129,7 @@
       </div>
       <div>
         <label>공부하는 색</label>
-        <select id="openingSide" style="width:100%"><option value="w">백</option><option value="b">흑</option></select>
+        <select id="openingSide" style="width:100%"><option value="w">백</option><option value="b">흑</option><option value="both">백·흑 공용</option></select>
       </div>
     </div>
     <label>카테고리</label>
@@ -287,7 +287,7 @@ function renderEditor() {
 
 function fillSelects() {
   const os = $('opening'); os.innerHTML='';
-  data.openings.forEach((o,i)=>{ const opt=document.createElement('option'); opt.value=i; opt.textContent=o.name+(o.sideToLearn==='b'?' (흑)':' (백)'); os.appendChild(opt); });
+  data.openings.forEach((o,i)=>{ const opt=document.createElement('option'); opt.value=i; opt.textContent=o.name+(o.sideToLearn==='b'?' (흑)':o.sideToLearn==='both'?' (백·흑)':' (백)'); os.appendChild(opt); });
   os.value = oi;
   // The lines nest — each branches off the one above — and the server sends how deep each sits, so
   // the list reads as the path you'd take: 투 나이츠 디펜스 › 나이트 어택 › 폴레리오 디펜스.

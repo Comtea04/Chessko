@@ -7,7 +7,9 @@ export type RootTabParamList = {
 export type OpeningStackParamList = {
   OpeningList: undefined;
   OpeningSearch: undefined;
-  OpeningDetail: { openingId: string };
+  /** `side` is which chair the opening was opened from — it seeds the board's perspective, so a
+   *  both-sides opening entered from the 흑 row starts as black. Omitted, the opening's own side wins. */
+  OpeningDetail: { openingId: string; side?: 'w' | 'b' };
   Analysis: { initialFen?: string } | undefined;
 };
 

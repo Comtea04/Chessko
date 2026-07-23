@@ -5,7 +5,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ChessBoard } from '../../components/ChessBoard';
 import { ScreenHeader } from '../../components/ScreenHeader';
-import { OPENINGS, plainSan, type Opening, type OpeningLine } from '../../data/openings';
+import { learnSides, plainSan, type Opening, type OpeningLine } from '../../data/openings';
+import { OPENINGS } from '../../data/openingsRuntime';
 import { useSavedOpenings } from '../../storage/useSavedOpenings';
 import { colors, radius, spacing, typography } from '../../theme';
 import type { PracticeStackParamList } from '../../navigation/types';
@@ -17,6 +18,8 @@ const CHOICE_COUNT = 4;
 interface Question {
   opening: Opening;
   line: OpeningLine;
+  /** The side being quizzed — the opening's own, or one of the two for a both-sides opening. */
+  side: 'w' | 'b';
   /** Number of moves already played; the answer is the move at this index. */
   step: number;
   fen: string;
@@ -35,15 +38,18 @@ function shuffle<T>(items: T[]): T[] {
 
 /**
  * Asks for a move played by the side the user is studying: with a white opening the question
- * always lands on a white move, so the user recalls their own choices, not the opponent's. Every
- * line of an opening is fair game — including the ones that punish a mistake, which is where
- * remembering the exact move matters most.
+ * always lands on a white move, so the user recalls their own choices, not the opponent's. An
+ * opening studied from both sides draws a side per question, since both halves are the user's to
+ * know. Every line of an opening is fair game — including the ones that punish a mistake, which is
+ * where remembering the exact move matters most.
  */
 function buildQuestion(openings: Opening[]): Question | null {
   const pool = shuffle(openings.flatMap((opening) => opening.lines.map((line) => ({ opening, line }))));
 
   for (const { opening, line } of pool) {
-    const parity = opening.sideToLearn === 'w' ? 0 : 1;
+    const sides = learnSides(opening);
+    const side = sides[Math.floor(Math.random() * sides.length)];
+    const parity = side === 'w' ? 0 : 1;
     const moves = line.moves.map(plainSan);
     const steps = moves.map((_, index) => index).filter((index) => index % 2 === parity);
     if (steps.length === 0) continue;
@@ -60,6 +66,7 @@ function buildQuestion(openings: Opening[]): Question | null {
     return {
       opening,
       line,
+      side,
       step,
       fen: chess.fen(),
       answer,
@@ -168,7 +175,7 @@ export function OpeningRecallScreen({ navigation }: Props) {
               <Text style={styles.questionOpening}>{question.opening.name}</Text>
               <Text style={styles.questionPrompt}>
                 {question.line.name} · {Math.floor(question.step / 2) + 1}수째 ·{' '}
-                {question.opening.sideToLearn === 'w' ? '백' : '흑'} 차례 — 다음 수는?
+                {question.side === 'w' ? '백' : '흑'} 차례 — 다음 수는?
               </Text>
             </View>
 
@@ -178,7 +185,7 @@ export function OpeningRecallScreen({ navigation }: Props) {
                 selectedSquare={null}
                 legalTargets={[]}
                 lastMove={null}
-                flipped={question.opening.sideToLearn === 'b'}
+                flipped={question.side === 'b'}
                 onSquarePress={() => {}}
               />
             )}

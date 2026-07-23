@@ -249,7 +249,7 @@
       "refs": []
     }
   },
-  "queens-gambit-declined:orthodox": {
+  "queens-gambit:declined": {
     "3": {
       "text": "폰을 잡지 않고 d5를 폰으로 받칩니다. 대가는 c8 비숍이 잠시 갇힌다는 것이지만, 사실 c6로 막는 슬라브 디펜스에서도, c8비숍은 성급하게 전개될 수 없습니다.",
       "refs": []
@@ -263,7 +263,7 @@
       "refs": []
     }
   },
-  "queens-gambit-declined:exchange": {
+  "queens-gambit:exchange": {
     "6": {
       "text": "중앙이 대칭으로 굳습니다. 백의 계획은 b4-b5로 흑의 c6 폰을 약하게 만드는 \"소수 폰 공격\"입니다.",
       "refs": []
@@ -273,7 +273,7 @@
       "refs": []
     }
   },
-  "queens-gambit-declined:tarrasch": {
+  "queens-gambit:tarrasch": {
     "5": {
       "text": "QGD의 답답함이 싫다면 이 수. 즉시 중앙을 반격합니다.",
       "refs": []
@@ -283,7 +283,7 @@
       "refs": []
     }
   },
-  "queens-gambit-declined:elephant-trap": {
+  "queens-gambit:elephant-trap": {
     "7": {
       "text": "함정의 미끼. d5 폰이 핀당해 공짜처럼 보이지만, 사실은 백을 유인하는 수입니다.",
       "refs": []
@@ -425,7 +425,7 @@
       "refs": []
     }
   },
-  "queens-gambit-accepted:main": {
+  "queens-gambit:accepted": {
     "3": {
       "text": "퀸즈 갬빗 어셉티드는 흑의 2... dxc4로 시작합니다. 닫힌 포지션에서 조용한 기물 배치가 특징인 퀸즈 갬빗에서, 특이하게도 열린 포지션과 전술 아이디어가 자주 나옵니다.",
       "refs": []

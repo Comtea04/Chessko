@@ -5,6 +5,7 @@ import { Chess, type Square } from 'chess.js';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ChessBoard } from '../../components/ChessBoard';
+import { learnSides, sideLabel } from '../../data/openings';
 import { searchByMoves, searchByText, type OpeningMatch } from '../../data/openingSearch';
 import { colors, radius, spacing, typography } from '../../theme';
 import type { OpeningStackParamList } from '../../navigation/types';
@@ -168,8 +169,10 @@ function ResultList({
           <View style={styles.resultText}>
             <View style={styles.resultTop}>
               <Text style={styles.resultEco}>{match.opening.eco}</Text>
-              <View style={[styles.sideDot, match.opening.sideToLearn === 'b' && styles.sideDotBlack]} />
-              <Text style={styles.resultSide}>{match.opening.sideToLearn === 'w' ? '백' : '흑'}</Text>
+              {learnSides(match.opening).map((side) => (
+                <View key={side} style={[styles.sideDot, side === 'b' && styles.sideDotBlack]} />
+              ))}
+              <Text style={styles.resultSide}>{sideLabel(match.opening)}</Text>
             </View>
             <Text style={styles.resultName} numberOfLines={1}>{match.opening.name}</Text>
             {match.opening.nameEn && (
