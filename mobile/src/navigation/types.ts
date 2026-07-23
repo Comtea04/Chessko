@@ -6,6 +6,7 @@ export type RootTabParamList = {
 
 export type OpeningStackParamList = {
   OpeningList: undefined;
+  OpeningSearch: undefined;
   OpeningDetail: { openingId: string };
   Analysis: { initialFen?: string } | undefined;
 };

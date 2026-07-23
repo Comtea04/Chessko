@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenHeader } from '../../components/ScreenHeader';
@@ -50,8 +51,21 @@ export function OpeningListScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScreenHeader title="오프닝 공부" subtitle="배우고 싶은 오프닝을 골라 수순을 따라가 보세요" />
+      <ScreenHeader
+        title="오프닝 공부"
+        subtitle="배우고 싶은 오프닝을 골라 수순을 따라가 보세요"
+        right={
+          <Pressable onPress={() => navigation.navigate('OpeningSearch')} hitSlop={8} style={styles.searchButton}>
+            <Ionicons name="search" size={22} color={colors.text} />
+          </Pressable>
+        }
+      />
       <ScrollView contentContainerStyle={styles.container}>
+        {/* A prominent entry too, since the header icon alone is easy to miss. */}
+        <Pressable style={styles.searchPrompt} onPress={() => navigation.navigate('OpeningSearch')}>
+          <Ionicons name="search" size={18} color={colors.textMuted} />
+          <Text style={styles.searchPromptText}>이름을 모르면 검색하거나 보드에 둬서 찾기</Text>
+        </Pressable>
         {renderRow('w', '백 오프닝', '내가 백일 때')}
         {renderRow('b', '흑 오프닝', '내가 흑일 때')}
       </ScrollView>
@@ -97,6 +111,26 @@ const styles = StyleSheet.create({
   container: {
     paddingBottom: spacing.xxl,
     gap: spacing.xl,
+  },
+  searchButton: {
+    padding: spacing.xs,
+  },
+  searchPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  searchPromptText: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
   section: {
     gap: spacing.sm,

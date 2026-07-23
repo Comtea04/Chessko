@@ -68,6 +68,7 @@ eas env:create --name EXPO_PUBLIC_API_BASE_URL --value https://api.yourdomain.co
 RootTabNavigator (하단 3탭)
 ├── 오프닝  OpeningStackNavigator
 │   ├── OpeningListScreen      백/흑 두 섹션의 가로 스크롤 캐러셀
+│   ├── OpeningSearchScreen    이름·ECO 타이핑 + 보드에 둬서 오프닝 찾기 → 바로 진입
 │   ├── OpeningDetailScreen    보드 위 화살표로 수순을 한 수씩 안내 + 북마크
 │   └── AnalysisScreen         FEN 입력 · 스크린샷 스캔 · 엔진 분석 (백엔드 필요)
 ├── 연습    PracticeStackNavigator

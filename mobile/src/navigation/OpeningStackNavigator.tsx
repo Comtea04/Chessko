@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { OpeningListScreen } from '../screens/opening/OpeningListScreen';
+import { OpeningSearchScreen } from '../screens/opening/OpeningSearchScreen';
 import { OpeningDetailScreen } from '../screens/opening/OpeningDetailScreen';
 import { AnalysisScreen } from '../screens/opening/AnalysisScreen';
 import { withScreenTransition } from '../components/ScreenTransition';
@@ -11,6 +12,7 @@ import type { OpeningStackParamList } from './types';
 const Stack = createNativeStackNavigator<OpeningStackParamList>();
 
 const OpeningList = withScreenTransition(OpeningListScreen);
+const OpeningSearch = withScreenTransition(OpeningSearchScreen);
 const OpeningDetail = withScreenTransition(OpeningDetailScreen);
 const Analysis = withScreenTransition(AnalysisScreen);
 
@@ -34,6 +36,7 @@ export function OpeningStackNavigator() {
       }}
     >
       <Stack.Screen name="OpeningList" component={OpeningList} options={{ headerShown: false }} />
+      <Stack.Screen name="OpeningSearch" component={OpeningSearch} options={{ title: '오프닝 찾기' }} />
       <Stack.Screen name="OpeningDetail" component={OpeningDetail} options={{ title: '' }} />
       <Stack.Screen name="Analysis" component={Analysis} options={{ title: '포지션 분석' }} />
     </Stack.Navigator>
