@@ -237,6 +237,9 @@ let editRefs = [];
 function renderEditor() {
   const l = line();
   const san = l.moves[ply];
+  // Declared before the title uses it: a `const` read above its declaration throws, and the throw
+  // takes the board render below it down with it.
+  const q = QUALITY[(l.qualities && l.qualities[ply]) || 'good'];
   $('moveTitle').innerHTML = '';
   $('moveTitle').append(san ? moveLabel(ply, san) : '—');
   if (san && q.symbol) {
@@ -248,7 +251,6 @@ function renderEditor() {
   }
   $('ply').textContent = `${ply+1} / ${l.moves.length}`;
   const fen = l.fens[ply];
-  const q = QUALITY[(l.qualities && l.qualities[ply]) || 'good'];
   const sq = l.squares && l.squares[ply];
   renderBoard(fen, {
     from: sq && sq.from,
