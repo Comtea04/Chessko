@@ -78,7 +78,7 @@ function OpeningCard({ opening, saved, onPress }: { opening: Opening; saved: boo
   const punishes = opening.lines.filter((line) => line.kind === 'punish').length;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, saved && styles.cardSaved, pressed && styles.cardPressed]}>
       <View style={styles.cardTop}>
         <Text style={styles.eco}>{opening.eco}</Text>
         {saved && <Text style={styles.savedBadge}>★</Text>}
@@ -174,6 +174,12 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.xs,
     ...shadow.card,
+  },
+  // Saved = currently learning. An orange border marks the ones in progress at a glance, next to
+  // the ★ badge that already flags them.
+  cardSaved: {
+    borderWidth: 2,
+    borderColor: colors.warning,
   },
   cardPressed: {
     opacity: 0.85,
