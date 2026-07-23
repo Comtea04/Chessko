@@ -825,6 +825,50 @@ export const OPENINGS: Opening[] = [
       },
     ],
   },
+  {
+    id: 'queens-gambit',
+    name: '퀸스 갬빗',
+    nameEn: 'Queen\'s Gambit',
+    eco: 'D06',
+    category: '폐쇄 게임',
+    sideToLearn: 'w',
+    description: '1.d4 d5 2.c4로 c-폰을 내밀어 중앙 d5를 흔드는 백의 대표 오프닝. 상대가 어떻게 받느냐(거절·수락·슬라브)에 따라 세 갈래로 나뉩니다.',
+    aliases: ['퀸스갬빗', '퀸즈갬빗', 'queens gambit', 'QG', '디클라인', '어셉티드', '슬라브 방어'],
+    lines: [
+      {
+        id: 'declined',
+        name: '거절 (2...e6)',
+        kind: 'main',
+        branchPly: 0,
+        description: '흑이 2...e6로 폰을 지키며 거절하는 가장 흔한 선택. 백은 Nc3·Bg5로 압박하며 e3로 견고하게 전개합니다.',
+        moves: ['d4', 'd5', 'c4', 'e6', 'Nc3', 'Nf6', 'Bg5', 'Be7', 'e3', 'O-O', 'Nf3', 'h6', 'Bh4', 'b6'],
+      },
+      {
+        id: 'accepted',
+        name: '수락 (2...dxc4)',
+        kind: 'variation',
+        branchPly: 3,
+        description: '흑이 c4 폰을 잡아 수락하는 변형. 백은 폰을 서둘러 되찾지 않고 e3·Bxc4로 중앙을 세운 뒤 자연스럽게 회수합니다.',
+        moves: ['d4', 'd5', 'c4', 'dxc4', 'Nf3', 'Nf6', 'e3', 'e6', 'Bxc4', 'c5', 'O-O', 'a6', 'dxc5', 'Bxc5'],
+      },
+      {
+        id: 'slav',
+        name: '슬라브 (2...c6)',
+        kind: 'variation',
+        branchPly: 3,
+        description: '흑이 2...c6로 폰을 지키며 비숍 길을 막지 않는 슬라브. 백은 Nc3·Nf3로 전개하고 a4로 흑의 ...b5 확장을 견제합니다.',
+        moves: ['d4', 'd5', 'c4', 'c6', 'Nf3', 'Nf6', 'Nc3', 'dxc4', 'a4', 'Bf5', 'e3', 'e6', 'Bxc4', 'Bb4'],
+      },
+      {
+        id: 'albin',
+        name: '알빈 카운터갬빗 (2...e5)',
+        kind: 'variation',
+        branchPly: 3,
+        description: '흑이 2...e5로 맞받아치는 갬빗. 백은 dxe5로 폰을 받고 g3·Bg2로 d4 폰을 압박하며 무리 없이 우위를 지킵니다.',
+        moves: ['d4', 'd5', 'c4', 'e5', 'dxe5', 'd4', 'Nf3', 'Nc6', 'g3', 'Bg4', 'Bg2', 'Qd7', 'O-O', 'O-O-O'],
+      },
+    ],
+  },
 ];
 
 export const OPENING_CATEGORIES: OpeningCategory[] = ['오픈 게임', '세미 오픈 게임', '폐쇄 게임', '인디언 디펜스', '플랭크 오프닝'];
