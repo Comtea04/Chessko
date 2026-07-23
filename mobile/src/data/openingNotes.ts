@@ -15,16 +15,48 @@ export interface Reference {
   kind: ReferenceKind;
 }
 
+/** Colours an arrow can be drawn in — named, not hex, so the board decides how each one looks. */
+export type ArrowColor = 'green' | 'red' | 'blue' | 'yellow';
+
+/** An arrow the author drew on this move, in the authoring tool's board. */
+export interface NoteArrow {
+  from: string;
+  to: string;
+  color: ArrowColor;
+}
+
 export interface MoveNote {
   text: string;
   refs: Reference[];
+  /** Drawn over the board while this move is the one showing, and gone as soon as the line moves on. */
+  arrows: NoteArrow[];
 }
 
-const DATA = notesData as Record<string, Record<string, MoveNote>>;
+const DATA = notesData as Record<string, Record<string, Partial<MoveNote>>>;
 
 function noteAt(opening: Opening, lineId: string, ply: number): MoveNote | undefined {
   const note = DATA[lineKey(opening.id, lineId)]?.[String(ply)];
-  return note?.text ? { text: note.text, refs: note.refs ?? [] } : undefined;
+  if (!note) return undefined;
+  const arrows = note.arrows ?? [];
+  // Arrows alone are commentary too — a move can be explained by pointing at the board.
+  if (!note.text && arrows.length === 0) return undefined;
+  return { text: note.text ?? '', refs: note.refs ?? [], arrows };
+}
+
+/**
+ * The opening's other lines that reach the *same position* at `ply` — identical moves up to and
+ * including it. Anything written about a move belongs to the position, not to whichever line happens
+ * to store it, so this is what lets the shared trunk be written once. Used for our own notes and for
+ * the community's alike.
+ */
+export function linesThrough(opening: Opening, line: OpeningLine, ply: number): OpeningLine[] {
+  const path = line.moves.map(plainSan).slice(0, ply + 1);
+  return opening.lines.filter((other) => {
+    if (other.id === line.id) return false;
+    const moves = other.moves.map(plainSan);
+    if (moves.length <= ply) return false;
+    return path.every((move, i) => moves[i] === move);
+  });
 }
 
 /**
@@ -37,12 +69,7 @@ export function noteFor(opening: Opening, line: OpeningLine, ply: number): MoveN
   const own = noteAt(opening, line.id, ply);
   if (own) return own;
 
-  const path = line.moves.map(plainSan).slice(0, ply + 1);
-  for (const other of opening.lines) {
-    if (other.id === line.id) continue;
-    const moves = other.moves.map(plainSan);
-    if (moves.length <= ply) continue;
-    if (!path.every((move, i) => moves[i] === move)) continue;
+  for (const other of linesThrough(opening, line, ply)) {
     const inherited = noteAt(opening, other.id, ply);
     if (inherited) return inherited;
   }

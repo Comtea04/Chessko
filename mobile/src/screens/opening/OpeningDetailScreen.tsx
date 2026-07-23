@@ -4,6 +4,7 @@ import { Chess, type Square } from 'chess.js';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ChessBoard } from '../../components/ChessBoard';
+import { CommunityNotes } from '../../components/CommunityNotes';
 import { EvalBar } from '../../components/EvalBar';
 import { QUALITY_STYLES } from '../../components/MoveQualityBadge';
 import { annotationsFor, evalCp, isNotable, type MoveAnnotation } from '../../data/openingAnnotations';
@@ -428,6 +429,9 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
             legalTargets={legalTargets}
             lastMove={lastMove}
             arrow={wrongPosition || deviation || finished || !isUserTurn ? null : expected}
+            // The author's arrows belong to the move on the board, so stepping on clears them by
+            // itself — the next move's note brings its own, or none.
+            arrows={shownFen ? undefined : note?.arrows}
             flipped={flipped}
             onSquarePress={handleSquarePress}
           />
@@ -448,6 +452,12 @@ export function OpeningDetailScreen({ route, navigation }: Props) {
               <Text style={styles.opponentHint}>상대 차례 — 다음 ▶ 을 눌러 응수를 봅니다</Text>
             )}
           </View>
+        )}
+
+        {/* Our own note above says one thing about the move; this is where everyone else's goes. It
+            belongs to the move on the board, so it only shows once one has been played. */}
+        {step > 0 && (
+          <CommunityNotes opening={opening} line={line} ply={step - 1} san={moves[step - 1]} />
         )}
 
         {(atFork || forks.length > 1) && (

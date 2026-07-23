@@ -22,5 +22,40 @@
         ]
       }
     ]
+  },
+  {
+    "id": "authored-2",
+    "name": "알라핀 갬빗",
+    "eco": "D08-D09",
+    "category": "폐쇄 게임",
+    "sideToLearn": "w",
+    "description": "",
+    "lines": [
+      {
+        "id": "main",
+        "name": "4... Nc6 메인라인",
+        "kind": "main",
+        "branchPly": 0,
+        "description": "",
+        "moves": [
+          "d4",
+          "d5",
+          "c4",
+          "e5",
+          "dxe5",
+          "d4",
+          "Nf3",
+          "Nc6",
+          "g3",
+          "Nge7",
+          "Bg2",
+          "Ng6",
+          "O-O",
+          "Ngxe5",
+          "Nxe5",
+          "Nxe5"
+        ]
+      }
+    ]
   }
 ]

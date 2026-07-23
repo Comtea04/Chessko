@@ -18,3 +18,9 @@ export const PIECE_IMAGES: Partial<Record<'w' | 'b', Partial<Record<PieceSymbol,
     p: require('../../assets/pieces/bP.png'),
   },
 };
+
+/** Drawn instead of the image wherever one is missing, so a piece is never invisible. */
+export const PIECE_GLYPHS: Record<'w' | 'b', Record<PieceSymbol, string>> = {
+  w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
+  b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
+};

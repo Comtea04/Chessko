@@ -24,6 +24,10 @@ const AUTHORED = authoredData as Opening[];
 interface Override {
   name?: string;
   hidden?: boolean;
+  /** A line re-entered in the authoring tool: its moves replace the curated ones, grades and all. */
+  moves?: string[];
+  kind?: OpeningLine['kind'];
+  branchPly?: number;
 }
 const EDITS = editsData as { openings: Record<string, Override>; lines: Record<string, Override> };
 
@@ -35,8 +39,15 @@ export const OPENINGS: Opening[] = [...CURATED, ...AUTHORED]
     const lines = [...opening.lines, ...branches]
       .filter((line) => !EDITS.lines[lineKey(opening.id, line.id)]?.hidden)
       .map((line) => {
-        const renamed = EDITS.lines[lineKey(opening.id, line.id)]?.name;
-        return renamed ? { ...line, name: renamed } : line;
+        const override = EDITS.lines[lineKey(opening.id, line.id)];
+        if (!override) return line;
+        return {
+          ...line,
+          name: override.name ?? line.name,
+          moves: override.moves ?? line.moves,
+          kind: override.kind ?? line.kind,
+          branchPly: override.branchPly ?? line.branchPly,
+        };
       });
     return { ...opening, name: EDITS.openings[opening.id]?.name ?? opening.name, lines };
   });

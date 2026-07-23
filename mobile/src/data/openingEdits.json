@@ -1,8 +1,22 @@
 {
-  "openings": {},
+  "openings": {
+    "authored-2": {
+      "name": "알빈 카운터 갬빗"
+    }
+  },
   "lines": {
     "kings-gambit:main": {
-      "name": "메인라인 어셉티드"
+      "name": "메인라인 어셉티드",
+      "moves": [
+        "e4",
+        "e5",
+        "f4",
+        "exf4",
+        "Nf3",
+        "g5"
+      ],
+      "kind": "main",
+      "branchPly": 0
     }
   }
 }

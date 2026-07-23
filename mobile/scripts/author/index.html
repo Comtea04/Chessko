@@ -13,7 +13,10 @@
   select { padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:#fff; font-size:14px; }
   main { display:grid; grid-template-columns: 380px 1fr; gap:20px; padding:20px; align-items:start; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
-  #board { width:352px; height:352px; display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr); border-radius:8px; overflow:hidden; margin:0 auto; }
+  #boardWrap { position:relative; width:352px; height:352px; margin:0 auto; }
+  #board { width:352px; height:352px; display:grid; grid-template-columns:repeat(8,1fr); grid-template-rows:repeat(8,1fr); border-radius:8px; overflow:hidden; }
+  /* Arrows are drawn over the squares and must never eat a click meant for a piece. */
+  #arrowLayer { position:absolute; inset:0; pointer-events:none; }
   .sq { display:flex; align-items:center; justify-content:center; font-size:34px; line-height:1; user-select:none; }
   .sq.l { background:var(--light); } .sq.d { background:var(--dark); }
   .pc.w { color:#fff; text-shadow:0 0 1px #333, 0 1px 2px rgba(0,0,0,.4); }
@@ -47,6 +50,13 @@
   .ref { display:grid; grid-template-columns: 1fr 1.6fr auto auto; gap:6px; margin-bottom:6px; }
   .ref input, .ref select { padding:6px; border:1px solid var(--line); border-radius:6px; font-size:13px; min-width:0; }
   .row { display:flex; gap:8px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  /* 유저 제안 한 건. 승인 전에는 노란 바탕 — 파일에는 있지만 앱에는 없는 상태입니다. */
+  .cnote { border:1px solid var(--line); border-radius:8px; padding:8px; margin-bottom:8px; }
+  .cnote.pending { background:#fdf7ec; border-color:#e6cf9b; }
+  .cnote .chead { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:6px; font-size:13px; }
+  .cnote input[type=text] { padding:6px; border:1px solid var(--line); border-radius:6px; font-size:13px; min-width:0; }
+  .cnote input.likes { width:64px; padding:6px; border:1px solid var(--line); border-radius:6px; font-size:13px; }
+  .cnote textarea { min-height:54px; }
   .muted { color:var(--muted); font-size:12px; }
   a.ext { font-size:13px; color:var(--primary); }
   #status { font-size:13px; color:var(--muted); }
@@ -63,7 +73,10 @@
 </header>
 <main>
   <div class="card">
-    <div id="board"></div>
+    <div id="boardWrap">
+      <div id="board"></div>
+      <svg id="arrowLayer" width="352" height="352" viewBox="0 0 352 352"></svg>
+    </div>
     <div class="nav">
       <button id="prev">◀ 이전</button>
       <span id="ply" class="muted" style="align-self:center"></span>
@@ -83,8 +96,22 @@
     <div class="row">
       <button id="addRef">+ 레퍼런스 추가</button>
       <button class="primary" id="save">저장</button>
-      <button id="editBranch" style="display:none">✎ 이 갈래 수정</button>
+      <button id="editBranch">✎ 이 라인 수정</button>
       <span id="saveMsg" class="muted"></span>
+    </div>
+    <p class="muted" style="margin-top:8px">
+      화살표: 보드에서 <b>우클릭 드래그</b> · <b>Shift</b> 빨강 · <b>Ctrl</b> 파랑 · <b>Alt</b> 노랑 ·
+      같은 화살표를 다시 그으면 지워집니다. <button id="clearArrows" style="padding:2px 8px">모두 지우기</button>
+      <span id="arrowCount"></span>
+    </p>
+    <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+      <label style="margin-top:0">유저 설명 (앱의 💬 칸) — <b>승인</b>한 것만 앱에 보이고, 좋아요 상위 3개까지 표시됩니다</label>
+      <div id="community"></div>
+      <div class="row">
+        <button id="addCommunity">+ 제안 붙여넣기</button>
+        <button class="primary" id="communitySave">유저 설명 저장</button>
+        <span id="communityMsg" class="muted"></span>
+      </div>
     </div>
     <div class="row" style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
       <span class="muted" style="width:100%">이 라인 · 오프닝 관리</span>
@@ -102,13 +129,14 @@
       <button id="branchCancel">취소</button>
     </div>
     <p class="muted" id="branchFrom"></p>
+    <p class="muted" id="branchEditHint"></p>
     <p style="margin:10px 0 6px"><b>추가 수순</b> <span class="muted">— 수를 누르면 등급이 붙습니다</span></p>
     <div class="moves" id="branchSeq"></div>
     <div class="row"><button id="branchUndo">↶ 마지막 수 취소</button></div>
     <label>갈래 이름</label>
     <input id="branchName" placeholder="예: 교환 · 5...Bg4" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font:inherit" />
     <label>종류</label>
-    <select id="branchKind"><option value="variation">변형</option><option value="punish">응징</option></select>
+    <select id="branchKind"><option value="variation">변형</option><option value="punish">응징</option><option value="main">메인</option></select>
     <div class="row" style="margin-top:12px"><button class="primary" id="branchSave">갈래 저장</button><span id="branchMsg" class="muted"></span></div>
     <p class="muted" style="margin-top:12px">보드에서 상대(및 이후) 수를 두어 갈래를 만든 뒤 저장하세요. 저장하면 앱 트리에 즉시 나타나고, 위에서 그 라인을 골라 설명을 답니다.</p>
   </div>
@@ -156,6 +184,7 @@ const QUALITY = {
 const KINDS = ['explorer','study','article','book','video'];
 let data, oi=0, li=0, ply=0;
 let notes = {}; // local mirror of server notes
+let community = {}; // …and of the user-suggested explanations, keyed the same way
 
 const $ = (id) => document.getElementById(id);
 
@@ -167,9 +196,87 @@ function flipped() {
 }
 
 const FILES = ['a','b','c','d','e','f','g','h'];
+
+/* ── 화살표 ──────────────────────────────────────────────────────────────────
+   우클릭 드래그로 긋고, 같은 화살표를 다시 그으면 지웁니다. 현재 수의 설명에 딸려
+   저장되므로, 다른 수로 넘어가면 그 수의 화살표로 바뀝니다(없으면 아무것도 안 보임).
+   색 이름은 앱의 ChessBoard가 쓰는 것과 같아야 합니다 — 여기서 hex를 정하지 않습니다. */
+const SQ = 44;
+const ARROW_HEX = { green:'#26845a', red:'#c83732', blue:'#3058c8', yellow:'#d69e14' };
+function arrowColorOf(e) {
+  if (e.shiftKey) return 'red';
+  if (e.ctrlKey || e.metaKey) return 'blue';
+  if (e.altKey) return 'yellow';
+  return 'green';
+}
+let editArrows = [];
+let dragFrom = null;
+
+function squareCenter(square) {
+  const file = FILES.indexOf(square[0]);
+  const rank = +square[1];
+  const col = flipped() ? 7 - file : file;
+  const row = flipped() ? rank - 1 : 8 - rank;
+  return { x: col*SQ + SQ/2, y: row*SQ + SQ/2 };
+}
+
+function renderArrows() {
+  const layer = $('arrowLayer');
+  layer.innerHTML = '';
+  const NS = 'http://www.w3.org/2000/svg';
+  for (const arrow of editArrows) {
+    const a = squareCenter(arrow.from), b = squareCenter(arrow.to);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (!len) continue;
+    const ux = dx/len, uy = dy/len;
+    const head = SQ * 0.42, half = head * 0.42;
+    // Stop the shaft short of the centre so the head sits on the target square, as the app draws it.
+    const tipX = b.x - ux*SQ*0.12, tipY = b.y - uy*SQ*0.12;
+    const baseX = tipX - ux*head,  baseY = tipY - uy*head;
+    const hex = ARROW_HEX[arrow.color] || ARROW_HEX.green;
+
+    const line = document.createElementNS(NS, 'line');
+    line.setAttribute('x1', a.x + ux*SQ*0.25); line.setAttribute('y1', a.y + uy*SQ*0.25);
+    line.setAttribute('x2', baseX);           line.setAttribute('y2', baseY);
+    line.setAttribute('stroke', hex);
+    line.setAttribute('stroke-width', SQ*0.16);
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('opacity', '0.85');
+    layer.appendChild(line);
+
+    const headEl = document.createElementNS(NS, 'polygon');
+    headEl.setAttribute('points', [
+      `${tipX},${tipY}`,
+      `${baseX - uy*half},${baseY + ux*half}`,
+      `${baseX + uy*half},${baseY - ux*half}`,
+    ].join(' '));
+    headEl.setAttribute('fill', hex);
+    headEl.setAttribute('opacity', '0.85');
+    layer.appendChild(headEl);
+  }
+  $('arrowCount').textContent = editArrows.length ? ` · ${editArrows.length}개 (저장해야 남습니다)` : '';
+}
+
+/** A drag onto another square adds the arrow — or takes it away, if that exact one is already there. */
+function toggleArrow(from, to, color) {
+  if (from === to) return;
+  const same = editArrows.findIndex((a) => a.from === from && a.to === to);
+  if (same >= 0) {
+    // Re-drawing in a different colour recolours rather than stacking two arrows on one line.
+    if (editArrows[same].color === color) editArrows.splice(same, 1);
+    else editArrows[same] = { from, to, color };
+  } else {
+    editArrows.push({ from, to, color });
+  }
+  renderArrows();
+}
 function renderBoard(fen, opts) {
   opts = opts || {};
   const board = $('board'); board.innerHTML = '';
+  // The overlay is a sibling of #board, so clearing the squares leaves it alone — wipe it here for
+  // the boards that don't draw arrows (new opening, new branch), or the last note's would linger.
+  if (!opts.arrows) $('arrowLayer').innerHTML = '';
   const rows = fen.split(' ')[0].split('/'); // rows[0] = rank 8
   const grid = rows.map((r) => {
     const row = [];
@@ -201,6 +308,17 @@ function renderBoard(fen, opts) {
         sq.appendChild(badge);
       }
       if (opts.onSquare) sq.onclick = () => opts.onSquare(square);
+      if (opts.arrows) {
+        // Right button only: the left one is how moves are entered, and must keep working.
+        sq.oncontextmenu = (e) => e.preventDefault();
+        sq.onmousedown = (e) => { if (e.button === 2) { e.preventDefault(); dragFrom = square; } };
+        sq.onmouseup = (e) => {
+          if (e.button !== 2 || !dragFrom) return;
+          e.preventDefault();
+          toggleArrow(dragFrom, square, arrowColorOf(e));
+          dragFrom = null;
+        };
+      }
       board.appendChild(sq);
     }
   }
@@ -213,7 +331,7 @@ function moveLabel(i, san) {
 
 function currentNote() {
   const key = line().key;
-  return (notes[key] && notes[key][ply]) || { text:'', refs:[] };
+  return (notes[key] && notes[key][ply]) || { text:'', refs:[], arrows:[] };
 }
 
 function renderRefs(refs) {
@@ -233,6 +351,75 @@ function renderRefs(refs) {
   });
 }
 
+/* ── 유저 설명(커뮤니티) ────────────────────────────────────────────────────
+   앱에는 서버가 없어서 제안이 텍스트로 건너옵니다. 여기에 붙여넣어 두면 파일에는 남지만
+   앱에는 보이지 않고, 승인을 켠 것만 좋아요 순으로 앱에 표시됩니다. */
+let editCommunity = [];
+
+/** 앱의 공유 텍스트를 그대로 붙여넣어도 되도록 필드를 뽑아냅니다. 형식이 아니면 통째로 본문 취급. */
+function parseSuggestion(raw) {
+  const lines = raw.split(/\r?\n/);
+  const field = (name) => (lines.find((l) => l.startsWith(name + ':')) || '').slice(name.length + 1).trim();
+  const blank = lines.findIndex((l, i) => i > 0 && l.trim() === '');
+  const body = blank >= 0 ? lines.slice(blank + 1).join('\n').trim() : '';
+  return { author: field('닉네임'), key: field('라인 키'), text: body || raw.trim() };
+}
+
+function renderCommunity() {
+  const box = $('community'); box.innerHTML = '';
+  if (!editCommunity.length) {
+    const p = document.createElement('p'); p.className = 'muted';
+    p.textContent = '이 수에 제안된 설명이 없습니다.';
+    box.appendChild(p);
+    return;
+  }
+  editCommunity.forEach((entry, idx) => {
+    const div = document.createElement('div');
+    div.className = 'cnote' + (entry.promoted ? '' : ' pending');
+    const head = document.createElement('div'); head.className = 'chead';
+
+    const approve = document.createElement('label');
+    approve.style.cssText = 'display:flex;align-items:center;gap:4px;margin:0;font-size:13px;color:var(--text)';
+    const box2 = document.createElement('input'); box2.type = 'checkbox'; box2.checked = !!entry.promoted;
+    box2.onchange = () => { entry.promoted = box2.checked; renderCommunity(); };
+    approve.append(box2, document.createTextNode('승인'));
+
+    const author = document.createElement('input');
+    author.type = 'text'; author.placeholder = '닉네임'; author.value = entry.author || '';
+    author.oninput = () => entry.author = author.value;
+
+    const likes = document.createElement('input');
+    likes.type = 'number'; likes.min = '0'; likes.className = 'likes'; likes.value = entry.likes || 0;
+    likes.title = '좋아요 수 — 앱은 이 순서로 상위 3개를 보여줍니다';
+    likes.oninput = () => entry.likes = +likes.value || 0;
+
+    const del = document.createElement('button'); del.textContent = '✕';
+    del.style.marginLeft = 'auto';
+    del.onclick = () => { editCommunity.splice(idx, 1); renderCommunity(); };
+
+    const text = document.createElement('textarea');
+    text.value = entry.text || '';
+    text.oninput = () => entry.text = text.value;
+
+    head.append(approve, author, document.createTextNode('♥'), likes, del);
+    div.append(head, text);
+    box.appendChild(div);
+  });
+}
+
+async function saveCommunity() {
+  const key = line().key;
+  const body = { key, ply, entries: editCommunity };
+  const out = await (await fetch('/api/community', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) })).json();
+  if (!out.ok) { $('communityMsg').textContent = '오류: ' + (out.error || '실패'); return; }
+  community[key] = community[key] || {};
+  if (out.saved.length) community[key][ply] = out.saved; else delete community[key][ply];
+  const shown = out.saved.filter(e => e.promoted).length;
+  $('communityMsg').textContent = `저장됨 ✓ (앱에 보이는 것 ${Math.min(shown, 3)}개)`;
+  editCommunity = out.saved.map(e => ({...e}));
+  renderCommunity();
+}
+
 let editRefs = [];
 function renderEditor() {
   const l = line();
@@ -240,6 +427,7 @@ function renderEditor() {
   // Declared before the title uses it: a `const` read above its declaration throws, and the throw
   // takes the board render below it down with it.
   const q = QUALITY[(l.qualities && l.qualities[ply]) || 'good'];
+  const note0 = currentNote();
   $('moveTitle').innerHTML = '';
   $('moveTitle').append(san ? moveLabel(ply, san) : '—');
   if (san && q.symbol) {
@@ -252,18 +440,24 @@ function renderEditor() {
   $('ply').textContent = `${ply+1} / ${l.moves.length}`;
   const fen = l.fens[ply];
   const sq = l.squares && l.squares[ply];
+  editArrows = (note0.arrows || []).map((a) => ({...a}));
   renderBoard(fen, {
+    arrows: true,
     from: sq && sq.from,
     // 'good' is the unremarkable case — badging every ordinary book move would say nothing.
     grade: sq && q.symbol ? { square: sq.to, ...q } : null,
   });
   $('lichess').href = 'https://lichess.org/analysis/' + fen.replace(/ /g,'_');
-  const note = currentNote();
-  $('text').value = note.text || '';
-  editRefs = (note.refs || []).map(r => ({...r}));
+  renderArrows();
+  $('text').value = note0.text || '';
+  editRefs = (note0.refs || []).map(r => ({...r}));
   renderRefs(editRefs);
+  editCommunity = ((community[l.key] || {})[ply] || []).map(e => ({...e}));
+  renderCommunity();
+  $('communityMsg').textContent = '';
   $('saveMsg').textContent = '';
-  $('editBranch').style.display = l.authored ? '' : 'none';
+  // Every line can be re-entered; where the change gets written differs (see the hint below).
+  $('editBranch').textContent = l.branchPly > 0 ? '✎ 이 갈래 수정' : '✎ 이 라인 수정';
   // Curated data isn't rewritten by this tool — deleting it records a "hidden" override instead, and
   // saying so up front is the difference between an undoable action and a confusing one.
   const o = data.openings[oi];
@@ -274,7 +468,8 @@ function renderEditor() {
   const strip = $('moves'); strip.innerHTML='';
   l.moves.forEach((m, i) => {
     const el = document.createElement('span');
-    const has = notes[l.key] && notes[l.key][i] && notes[l.key][i].text;
+    const saved = notes[l.key] && notes[l.key][i];
+    const has = saved && (saved.text || (saved.arrows || []).length);
     const mq = QUALITY[(l.qualities && l.qualities[i]) || 'good'];
     el.className = 'mv' + (i===ply?' cur':'') + (has?' has':'');
     el.textContent = moveLabel(i, m) + mq.symbol;
@@ -305,7 +500,7 @@ function fillSelects() {
 
 async function save() {
   const key = line().key;
-  const body = { key, ply, note: { text: $('text').value, refs: editRefs.filter(r=>r.url&&r.label) } };
+  const body = { key, ply, note: { text: $('text').value, refs: editRefs.filter(r=>r.url&&r.label), arrows: editArrows } };
   const res = await fetch('/api/note', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body) });
   const out = await res.json();
   if (out.ok) {
@@ -357,20 +552,30 @@ function enterBranch() {
   $('branchTitle').textContent = '새 갈래(상대 응수) 추가';
   $('branchSave').textContent = '갈래 저장';
   $('branchName').value = ''; $('branchKind').value = 'variation'; $('branchMsg').textContent = '';
+  $('branchEditHint').textContent = '';
   $('branchFrom').textContent = `분기 지점: ${editor.path.length}수 후 — ${editor.path.join(' ')}`;
 }
 
 /** Reopen an authored branch with its own moves loaded, to change the moves or their grades. The
  *  shared trunk up to `branchPly` stays fixed; everything after it is back on the board to redo. */
+/** Reopen a line with its own moves loaded, to change the moves or their grades. The shared trunk up
+ *  to `branchPly` stays fixed; everything after it is back on the board to redo. A main line has no
+ *  trunk, so the whole thing goes back on the board. */
 function editBranch() {
   const l = line();
-  if (!l.authored) return;
   const after = l.graded.slice(l.branchPly);
   enterEditor('branch', l.graded.slice(0, l.branchPly), after.map(plainOf), after.map(gradeOf), l.id);
-  $('branchTitle').textContent = `갈래 수정 — ${l.name}`;
+  $('branchTitle').textContent = `라인 수정 — ${l.name}`;
   $('branchSave').textContent = '수정 저장';
   $('branchName').value = l.name; $('branchKind').value = l.kind; $('branchMsg').textContent = '';
-  $('branchFrom').textContent = `분기 지점: ${editor.path.length}수 후 — ${l.moves.slice(0, l.branchPly).join(' ')}`;
+  const trunk = l.moves.slice(0, l.branchPly);
+  $('branchFrom').textContent = l.branchPly > 0
+    ? `분기 지점: ${l.branchPly}수 후 — ${trunk.join(' ')} (이 앞부분은 고정입니다)`
+    : '메인라인이라 첫 수부터 다시 둡니다.';
+  // Curated lines are never rewritten in openings.ts; the new moves are recorded beside it instead.
+  $('branchEditHint').textContent = l.authored || data.openings[oi].authored
+    ? '직접 추가한 라인이라 파일이 그대로 수정됩니다.'
+    : 'openings.ts의 원본은 그대로 두고 openingEdits.json에 새 수순을 기록합니다 — 되돌리려면 그 항목을 지우세요. 수순이 바뀌면 굽어둔 엔진 평가는 무시되니, npm run gen:openings 로 다시 구우세요.';
 }
 
 function enterOpening() {
@@ -432,6 +637,7 @@ function onEditorSquare(square) {
 async function reload(select) {
   data = await (await fetch('/api/data')).json();
   notes = data.notes || {};
+  community = data.community || {};
   const target = select ? select(data) : null;
   if (target) { oi = target.oi; li = target.li; }
   oi = Math.min(Math.max(oi, 0), data.openings.length - 1);
@@ -481,6 +687,19 @@ $('line').onchange = e => { closeEditor(); li=+e.target.value; ply=0; renderEdit
 $('prev').onclick = () => { if(ply>0){ply--; renderEditor();} };
 $('next').onclick = () => { if(ply<line().moves.length-1){ply++; renderEditor();} };
 $('addRef').onclick = () => { editRefs.push({label:'',url:'',kind:'explorer'}); renderRefs(editRefs); };
+$('addCommunity').onclick = () => {
+  const raw = prompt('앱에서 보내온 제안을 붙여넣으세요 (설명만 붙여넣어도 됩니다)');
+  if (!raw || !raw.trim()) return;
+  const s = parseSuggestion(raw);
+  // 다른 수의 제안을 실수로 붙여넣는 일이 제일 흔하므로, 키가 어긋나면 먼저 말해 줍니다.
+  if (s.key && s.key !== line().key && !confirm(`제안에 적힌 라인(${s.key})이 지금 열어둔 라인(${line().key})과 다릅니다. 그래도 여기에 넣을까요?`)) return;
+  editCommunity.push({ id:'', author:s.author || '익명', text:s.text, likes:0, promoted:false });
+  renderCommunity();
+};
+$('communitySave').onclick = saveCommunity;
+$('clearArrows').onclick = () => { editArrows = []; renderArrows(); };
+// Released outside the board: the square handlers never ran, so forget where the drag started.
+window.addEventListener('mouseup', () => { dragFrom = null; });
 $('save').onclick = save;
 $('newBranch').onclick = enterBranch;
 $('editBranch').onclick = editBranch;
@@ -529,6 +748,7 @@ $('deleteOpening').onclick = () => {
 (async () => {
   data = await (await fetch('/api/data')).json();
   notes = data.notes || {};
+  community = data.community || {};
   const cats = $('openingCategory');
   (data.categories || []).forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; cats.appendChild(o); });
   fillSelects();

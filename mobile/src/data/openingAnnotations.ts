@@ -12,7 +12,21 @@ const MATE_CP = 800;
  */
 export function annotationsFor(opening: Opening, line: OpeningLine): MoveAnnotation[] {
   const generated = OPENING_ANNOTATIONS[lineKey(opening.id, line.id)];
-  if (generated) return generated;
+  // The grades are stored per ply, so a line edited since they were baked would show its old
+  // evaluations against its new moves. Falling back is the honest answer until `gen:openings` reruns.
+  if (generated && generated.length === line.moves.length) {
+    // A grade the author pinned on the move wins over the engine's, here and not only when the file
+    // is regenerated — otherwise marking a move in the authoring tool changes nothing until someone
+    // runs Stockfish over the whole data set again. The evaluations themselves still come from the
+    // engine; only the verdict on the move is the author's.
+    return generated.map((annotation, ply) => {
+      const pinned = authoredQuality(line.moves[ply]);
+      if (!pinned || pinned === annotation.quality) return annotation;
+      // A move the author vouches for shouldn't still carry the engine's "you should have played X".
+      const keepBetter = pinned === 'inaccuracy' || pinned === 'mistake' || pinned === 'blunder';
+      return { ...annotation, quality: pinned, betterSan: keepBetter ? annotation.betterSan : undefined };
+    });
+  }
 
   return line.moves.map((move) => ({
     quality: authoredQuality(move) ?? 'good',

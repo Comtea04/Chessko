@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line, Polygon } from 'react-native-svg';
 import type { Chess, PieceSymbol, Square } from 'chess.js';
-import { PIECE_IMAGES } from './PieceImages';
+import { PIECE_GLYPHS, PIECE_IMAGES } from './PieceImages';
+import { CapturedPieces } from './CapturedPieces';
 import { useSettings } from '../storage/useSettings';
+import type { ArrowColor } from '../data/openingNotes';
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
@@ -11,11 +13,6 @@ const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const PIECE_SLIDE_MS = 160;
 
 type BoardPiece = NonNullable<ReturnType<Chess['board']>[number][number]>;
-
-const PIECE_GLYPHS: Record<'w' | 'b', Record<PieceSymbol, string>> = {
-  w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
-  b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
-};
 
 /** Board rows render rank 8 → 1 by default, and rank 1 → 8 when flipped to black's view. */
 function squareAt(row: number, col: number, flipped: boolean): Square {
@@ -54,8 +51,12 @@ interface ChessBoardProps {
   squareOverlay?: Partial<Record<Square, SquareOverlayKind>>;
   /** Draws the move to play next, used by the guided opening walkthrough. */
   arrow?: { from: Square; to: Square } | null;
+  /** Arrows an author drew on the move being shown — several, each in its own colour. */
+  arrows?: Array<{ from: string; to: string; color: ArrowColor }>;
   /** Renders from black's side. */
   flipped?: boolean;
+  /** Set false where the captured-piece tally under the board would only be noise. */
+  showCaptures?: boolean;
 }
 
 export function ChessBoard({
@@ -66,56 +67,70 @@ export function ChessBoard({
   onSquarePress,
   squareOverlay,
   arrow,
+  arrows,
   flipped = false,
+  showCaptures = true,
 }: ChessBoardProps) {
   const rows = flipped ? [...board].reverse().map((row) => [...row].reverse()) : board;
   const slide = usePieceSlide(board, lastMove ?? null);
 
   return (
-    <View style={styles.board}>
-      {rows.map((row, rowIndex) => (
-        <View key={rowIndex} style={styles.row}>
-          {row.map((piece, colIndex) => {
-            const square = squareAt(rowIndex, colIndex, flipped);
-            // Square colour follows the board, not the viewpoint: flipping both axes preserves parity.
-            const isDark = (rowIndex + colIndex) % 2 === 1;
-            const isSelected = square === selectedSquare;
-            const isLegalTarget = legalTargets.includes(square);
-            const isLastMove = square === lastMove?.from || square === lastMove?.to;
-            const imageSource = piece ? PIECE_IMAGES[piece.color]?.[piece.type] : null;
-            const overlay = squareOverlay?.[square];
+    <View style={styles.container}>
+      <View style={styles.board}>
+        {rows.map((row, rowIndex) => (
+          <View key={rowIndex} style={styles.row}>
+            {row.map((piece, colIndex) => {
+              const square = squareAt(rowIndex, colIndex, flipped);
+              // Square colour follows the board, not the viewpoint: flipping both axes preserves parity.
+              const isDark = (rowIndex + colIndex) % 2 === 1;
+              const isSelected = square === selectedSquare;
+              const isLegalTarget = legalTargets.includes(square);
+              const isLastMove = square === lastMove?.from || square === lastMove?.to;
+              const imageSource = piece ? PIECE_IMAGES[piece.color]?.[piece.type] : null;
+              const overlay = squareOverlay?.[square];
 
-            return (
-              <Pressable
-                key={square}
-                onPress={() => onSquarePress(square)}
-                style={[
-                  styles.square,
-                  isDark ? styles.darkSquare : styles.lightSquare,
-                  isLastMove && styles.lastMoveSquare,
-                  isSelected && styles.selectedSquare,
-                  overlay === 'correct' && styles.correctSquare,
-                  overlay === 'wrong' && styles.wrongSquare,
-                  overlay === 'hint' && styles.hintSquare,
-                ]}
-              >
-                {/* The travelling piece is drawn by the overlay instead, so it does not appear twice. */}
-                {piece && square !== slide?.move.to && (
-                  imageSource ? (
-                    <Image source={imageSource} style={styles.pieceImage} resizeMode="contain" />
-                  ) : (
-                    <Text style={styles.piece}>{PIECE_GLYPHS[piece.color][piece.type]}</Text>
-                  )
-                )}
-                {isLegalTarget && <View style={piece ? styles.captureDot : styles.moveDot} />}
-              </Pressable>
-            );
-          })}
-        </View>
-      ))}
+              return (
+                <Pressable
+                  key={square}
+                  onPress={() => onSquarePress(square)}
+                  style={[
+                    styles.square,
+                    isDark ? styles.darkSquare : styles.lightSquare,
+                    isLastMove && styles.lastMoveSquare,
+                    isSelected && styles.selectedSquare,
+                    overlay === 'correct' && styles.correctSquare,
+                    overlay === 'wrong' && styles.wrongSquare,
+                    overlay === 'hint' && styles.hintSquare,
+                  ]}
+                >
+                  {/* The travelling piece is drawn by the overlay instead, so it does not appear twice. */}
+                  {piece && square !== slide?.move.to && (
+                    imageSource ? (
+                      <Image source={imageSource} style={styles.pieceImage} resizeMode="contain" />
+                    ) : (
+                      <Text style={styles.piece}>{PIECE_GLYPHS[piece.color][piece.type]}</Text>
+                    )
+                  )}
+                  {isLegalTarget && <View style={piece ? styles.captureDot : styles.moveDot} />}
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
 
-      {slide && <SlidingPiece piece={slide.piece} move={slide.move} progress={slide.progress} flipped={flipped} />}
-      {arrow && <MoveArrow from={arrow.from} to={arrow.to} flipped={flipped} />}
+        {slide && <SlidingPiece piece={slide.piece} move={slide.move} progress={slide.progress} flipped={flipped} />}
+        {arrows?.map((drawn, index) => (
+          <MoveArrow
+            key={`${drawn.from}${drawn.to}${drawn.color}${index}`}
+            from={drawn.from as Square}
+            to={drawn.to as Square}
+            flipped={flipped}
+            color={ARROW_COLORS[drawn.color] ?? ARROW_COLORS.green}
+          />
+        ))}
+        {arrow && <MoveArrow from={arrow.from} to={arrow.to} flipped={flipped} />}
+      </View>
+      {showCaptures && <CapturedPieces board={board} flipped={flipped} />}
     </View>
   );
 }
@@ -203,8 +218,26 @@ function SlidingPiece({ piece, move, progress, flipped }: Slide & { flipped: boo
 
 const ARROW_COLOR = 'rgba(38, 132, 90, 0.85)';
 
+/** Must match the palette the authoring tool draws with, so an arrow keeps the colour it was given. */
+const ARROW_COLORS: Record<ArrowColor, string> = {
+  green: ARROW_COLOR,
+  red: 'rgba(200, 55, 50, 0.85)',
+  blue: 'rgba(48, 88, 200, 0.85)',
+  yellow: 'rgba(214, 158, 20, 0.9)',
+};
+
 /** Overlay only — it must never swallow taps meant for the squares underneath. */
-function MoveArrow({ from, to, flipped }: { from: Square; to: Square; flipped: boolean }) {
+function MoveArrow({
+  from,
+  to,
+  flipped,
+  color = ARROW_COLOR,
+}: {
+  from: Square;
+  to: Square;
+  flipped: boolean;
+  color?: string;
+}) {
   const start = centerOf(from, flipped);
   const end = centerOf(to, flipped);
 
@@ -237,11 +270,11 @@ function MoveArrow({ from, to, flipped }: { from: Square; to: Square; flipped: b
         y1={start.y + uy * SQUARE_SIZE * 0.25}
         x2={baseX}
         y2={baseY}
-        stroke={ARROW_COLOR}
+        stroke={color}
         strokeWidth={SQUARE_SIZE * 0.16}
         strokeLinecap="round"
       />
-      <Polygon points={points} fill={ARROW_COLOR} />
+      <Polygon points={points} fill={color} />
     </Svg>
   );
 }
@@ -250,6 +283,10 @@ const SQUARE_SIZE = 40;
 const BOARD_SIZE = SQUARE_SIZE * 8;
 
 const styles = StyleSheet.create({
+  // Sized by the board, so the capture strip under it spans exactly the board's width.
+  container: {
+    alignSelf: 'flex-start',
+  },
   board: {
     width: BOARD_SIZE,
     height: BOARD_SIZE,

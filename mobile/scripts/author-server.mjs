@@ -5,8 +5,9 @@
  *
  * Step through any opening line on a board and edit the Korean note and reference links for each
  * move; add a branch (an opponent reply) from any position; add a whole new opening; rename or delete
- * any opening or line. Each writes straight to a file the app reads — `openingNotes.json`,
- * `openingBranches.json`, `openingsAuthored.json`, `openingEdits.json`. This is a dev-only tool:
+ * any opening or line; review the explanations users suggested for a move and promote the ones worth
+ * showing. Each writes straight to a file the app reads — `openingNotes.json`, `openingBranches.json`,
+ * `openingsAuthored.json`, `openingEdits.json`, `openingCommunityNotes.json`. This is a dev-only tool:
  * nothing here ships in the app bundle. It writes files, which the browser can't do on its own, which
  * is the whole reason it's a tiny local server rather than an in-app screen.
  */
@@ -21,10 +22,15 @@ const NOTES_PATH = fileURLToPath(new URL('../src/data/openingNotes.json', import
 const BRANCHES_PATH = fileURLToPath(new URL('../src/data/openingBranches.json', import.meta.url));
 const AUTHORED_PATH = fileURLToPath(new URL('../src/data/openingsAuthored.json', import.meta.url));
 const EDITS_PATH = fileURLToPath(new URL('../src/data/openingEdits.json', import.meta.url));
+const COMMUNITY_PATH = fileURLToPath(new URL('../src/data/openingCommunityNotes.json', import.meta.url));
 const HTML_PATH = fileURLToPath(new URL('./author/index.html', import.meta.url));
 
 /** Must match the OpeningCategory union in openings.ts — the new-opening form offers exactly these. */
 const CATEGORIES = ['오픈 게임', '세미 오픈 게임', '폐쇄 게임', '인디언 디펜스', '플랭크 오프닝'];
+
+/** Arrows drawn on a move are stored with it; anything else the browser sends is dropped. */
+const SQUARE = /^[a-h][1-8]$/;
+const ARROW_COLORS = new Set(['green', 'red', 'blue', 'yellow']);
 
 /**
  * `openings.ts` re-read whenever it changes on disk. A plain top-level import would freeze the data
@@ -57,7 +63,20 @@ async function allOpenings() {
       name: edits.openings[o.id]?.name ?? o.name,
       lines: [...o.lines, ...(branches[o.id] ?? []).map((l) => ({ ...l, authored: true }))]
         .filter((l) => !edits.lines[lineKey(o.id, l.id)]?.hidden)
-        .map((l) => ({ ...l, name: edits.lines[lineKey(o.id, l.id)]?.name ?? l.name })),
+        // Same merge the app does in `openingsRuntime.ts`: an override replaces the name and, for a
+        // line re-entered here, the moves too. Reading back less than the app does would leave the
+        // editor showing the original after a save that did land on disk.
+        .map((l) => {
+          const override = edits.lines[lineKey(o.id, l.id)];
+          if (!override) return l;
+          return {
+            ...l,
+            name: override.name ?? l.name,
+            moves: override.moves ?? l.moves,
+            kind: override.kind ?? l.kind,
+            branchPly: override.branchPly ?? l.branchPly,
+          };
+        }),
     }));
 }
 
@@ -109,7 +128,7 @@ async function assertLegal(moves) {
   for (const move of moves) chess.move(plainSan(move));
 }
 
-async function buildData(notes) {
+async function buildData(notes, community) {
   const { lineKey, plainSan, authoredQuality } = await loadOpenings();
   const authoredIds = new Set((await readAuthored()).map((o) => o.id));
   const annotations = await loadAnnotations();
@@ -137,12 +156,14 @@ async function buildData(notes) {
         graded: l.moves,
         fens,
         squares,
-        qualities: l.moves.map((san, i) => baked?.[i]?.quality ?? authoredQuality(san) ?? 'good'),
+        // The author's own grade first, the way the app reads it — otherwise pinning a grade here
+        // leaves the badge showing Stockfish's verdict until the annotations are regenerated.
+        qualities: l.moves.map((san, i) => authoredQuality(san) ?? baked?.[i]?.quality ?? 'good'),
         authored: l.authored ?? false,
       };
     })),
   }));
-  return { openings, notes, categories: CATEGORIES };
+  return { openings, notes, community, categories: CATEGORIES };
 }
 
 /**
@@ -185,7 +206,14 @@ function cleanEntry(entry) {
   const obj = {};
   for (const p of Object.keys(entry).map(Number).sort((a, b) => a - b)) {
     const n = entry[p];
-    if (n && n.text && n.text.trim()) obj[p] = { text: n.text, refs: Array.isArray(n.refs) ? n.refs : [] };
+    if (!n) continue;
+    const text = n.text && n.text.trim() ? n.text : '';
+    const refs = Array.isArray(n.refs) ? n.refs : [];
+    const arrows = Array.isArray(n.arrows) ? n.arrows : [];
+    // Arrows alone are a note too — a move can be explained by pointing at the board rather than
+    // writing about it. Every save is rewritten through here, so anything this drops is gone.
+    if (!text && arrows.length === 0) continue;
+    obj[p] = arrows.length > 0 ? { text, refs, arrows } : { text, refs };
   }
   return Object.keys(obj).length ? obj : null;
 }
@@ -228,6 +256,70 @@ async function readNotes() {
   }
 }
 
+/**
+ * The explanations users suggested, `openingCommunityNotes.json`. With no server behind the app they
+ * arrive here as pasted text, so this file doubles as the moderation queue: everything is stored,
+ * and only what has `promoted: true` is ever shown in the app.
+ */
+async function readCommunity() {
+  try {
+    return JSON.parse(await readFile(COMMUNITY_PATH, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+/** Whatever the browser sent, reduced to the five fields the app reads. Entries without text are dropped. */
+function cleanCommunity(list) {
+  const seen = new Set();
+  const out = [];
+  for (const entry of Array.isArray(list) ? list : []) {
+    const text = String(entry?.text ?? '').trim();
+    if (!text) continue;
+    let id = String(entry?.id ?? '').trim();
+    // Ids are what dedupe an entry that a position reaches through two lines, so they have to exist
+    // and be unique — a pasted-in suggestion arrives without one.
+    if (!id || seen.has(id)) id = `c${Date.now().toString(36)}${out.length}`;
+    seen.add(id);
+    const likes = Math.trunc(Number(entry?.likes));
+    out.push({
+      id,
+      author: String(entry?.author ?? '').trim() || '익명',
+      text,
+      likes: Number.isFinite(likes) && likes > 0 ? likes : 0,
+      promoted: entry?.promoted === true,
+    });
+  }
+  return out;
+}
+
+/** Same fixed order (opening → line → ply) the notes are written in, and orphans kept the same way. */
+async function writeCommunity(community) {
+  const { lineKey } = await loadOpenings();
+  const ordered = {};
+  const placed = new Set();
+  const put = (key, entry) => {
+    const obj = {};
+    for (const p of Object.keys(entry ?? {}).map(Number).sort((a, b) => a - b)) {
+      const list = cleanCommunity(entry[p]);
+      if (list.length) obj[p] = list;
+    }
+    if (Object.keys(obj).length) ordered[key] = obj;
+  };
+  for (const o of await allOpenings()) {
+    for (const l of o.lines) {
+      const key = lineKey(o.id, l.id);
+      placed.add(key);
+      if (community[key]) put(key, community[key]);
+    }
+  }
+  for (const [key, entry] of Object.entries(community)) {
+    if (!placed.has(key)) put(key, entry);
+  }
+  await writeFile(COMMUNITY_PATH, JSON.stringify(ordered, null, 2) + '\n');
+  return ordered;
+}
+
 async function readBranches() {
   try {
     return JSON.parse(await readFile(BRANCHES_PATH, 'utf8'));
@@ -268,6 +360,12 @@ function setOverride(bucket, key, patch) {
   const next = { ...(bucket[key] ?? {}), ...patch };
   if (!next.name) delete next.name;
   if (!next.hidden) delete next.hidden;
+  // The three move fields are one thing: without `moves` the other two describe nothing.
+  if (!next.moves?.length) {
+    delete next.moves;
+    delete next.kind;
+    delete next.branchPly;
+  }
   if (Object.keys(next).length) bucket[key] = next;
   else delete bucket[key];
 }
@@ -327,7 +425,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && req.url === '/api/data') {
-      sendJson(res, 200, await buildData(await readNotes()));
+      sendJson(res, 200, await buildData(await readNotes(), await readCommunity()));
       return;
     }
 
@@ -421,6 +519,7 @@ const server = createServer(async (req, res) => {
       }
       const edits = await readEdits();
       const notes = await readNotes();
+      const community = await readCommunity();
       const branches = await readBranches();
       const authored = await readAuthored();
       const ownIndex = authored.findIndex((o) => o.id === openingId);
@@ -446,6 +545,7 @@ const server = createServer(async (req, res) => {
             await writeAuthored(authored);
           }
           delete notes[key];
+          delete community[key];
           // The line is gone for good, so its rename goes too — branch ids are generated from the
           // move that starts them, and a later branch could otherwise inherit this name.
           delete edits.lines[key];
@@ -459,6 +559,7 @@ const server = createServer(async (req, res) => {
         delete branches[openingId];
         await writeBranches(branches);
         for (const key of Object.keys(notes)) if (key.startsWith(`${openingId}:`)) delete notes[key];
+        for (const key of Object.keys(community)) if (key.startsWith(`${openingId}:`)) delete community[key];
         // Drop any rename recorded for an opening that no longer exists.
         delete edits.openings[openingId];
         for (const key of Object.keys(edits.lines)) if (key.startsWith(`${openingId}:`)) delete edits.lines[key];
@@ -469,6 +570,7 @@ const server = createServer(async (req, res) => {
       }
 
       await writeFile(NOTES_PATH, JSON.stringify(await canonicalize(notes), null, 2) + '\n');
+      await writeCommunity(community);
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -496,8 +598,30 @@ const server = createServer(async (req, res) => {
       const branches = await readBranches();
       const list = branches[openingId] ?? [];
       const index = id ? list.findIndex((b) => b.id === id) : -1;
+
+      // Editing a line that isn't one of this tool's own branches: it lives either in an opening
+      // added here, or in the hand-written `openings.ts`. The second can't be rewritten, so the new
+      // moves are recorded beside it in `openingEdits.json` — the same way renaming and deleting are.
       if (id && index < 0) {
-        sendJson(res, 404, { error: '수정할 갈래를 찾을 수 없습니다' });
+        const target = opening.lines.find((l) => l.id === id);
+        if (!target) {
+          sendJson(res, 404, { error: '수정할 라인을 찾을 수 없습니다' });
+          return;
+        }
+        const kept = kind === 'main' || kind === 'punish' || kind === 'variation' ? kind : target.kind;
+        const authored = await readAuthored();
+        const own = authored.find((o) => o.id === openingId)?.lines.find((l) => l.id === id);
+        if (own) {
+          Object.assign(own, { name, kind: kept, branchPly: ply, moves });
+          await writeAuthored(authored);
+          sendJson(res, 200, { ok: true, branch: own });
+          return;
+        }
+        const { lineKey } = await loadOpenings();
+        const edits = await readEdits();
+        setOverride(edits.lines, lineKey(openingId, id), { name, moves, kind: kept, branchPly: ply });
+        await writeEdits(edits);
+        sendJson(res, 200, { ok: true, branch: { ...target, name, kind: kept, branchPly: ply, moves } });
         return;
       }
       const branch = {
@@ -537,14 +661,39 @@ const server = createServer(async (req, res) => {
       notes[key] = notes[key] ?? {};
       const text = (note?.text ?? '').trim();
       const refs = Array.isArray(note?.refs) ? note.refs.filter((r) => r && r.url && r.label) : [];
-      if (!text && refs.length === 0) {
+      const arrows = Array.isArray(note?.arrows)
+        ? note.arrows
+            .filter((a) => a && SQUARE.test(a.from) && SQUARE.test(a.to) && a.from !== a.to && ARROW_COLORS.has(a.color))
+            .map((a) => ({ from: a.from, to: a.to, color: a.color }))
+        : [];
+      if (!text && refs.length === 0 && arrows.length === 0) {
         delete notes[key][ply];
       } else {
-        notes[key][ply] = { text, refs };
+        // `arrows` is left out when there are none, so the notes file doesn't grow an empty array on
+        // every move that only has text.
+        notes[key][ply] = arrows.length > 0 ? { text, refs, arrows } : { text, refs };
       }
       const ordered = await canonicalize(notes);
       await writeFile(NOTES_PATH, JSON.stringify(ordered, null, 2) + '\n');
       sendJson(res, 200, { ok: true, saved: ordered[key]?.[ply] ?? null });
+      return;
+    }
+
+    // The user explanations for one move, saved as a whole list: approving, editing a like count and
+    // deleting are all the same write. The app shows the promoted ones, best-liked first.
+    if (req.method === 'POST' && req.url === '/api/community') {
+      const { key, ply, entries } = JSON.parse(await readBody(req));
+      if (typeof key !== 'string' || !Number.isInteger(ply)) {
+        sendJson(res, 400, { error: 'key(string) and ply(int) required' });
+        return;
+      }
+      const community = await readCommunity();
+      community[key] = community[key] ?? {};
+      const cleaned = cleanCommunity(entries);
+      if (cleaned.length) community[key][ply] = cleaned;
+      else delete community[key][ply];
+      const ordered = await writeCommunity(community);
+      sendJson(res, 200, { ok: true, saved: ordered[key]?.[ply] ?? [] });
       return;
     }
 
@@ -557,7 +706,7 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(
     `\n  오프닝 편집기 → http://localhost:${PORT}` +
-      `\n  저장 대상: src/data/ 의 openingNotes / openingBranches / openingsAuthored / openingEdits .json` +
+      `\n  저장 대상: src/data/ 의 openingNotes / openingBranches / openingsAuthored / openingEdits / openingCommunityNotes .json` +
       `\n  openings.ts는 바뀔 때마다 다시 읽으므로 서버를 재시작할 필요가 없습니다.  (Ctrl+C로 종료)\n`
   );
 });

@@ -130,6 +130,7 @@ src/
 │   ├── EvalBar.tsx        체스닷컴식 세로 이밸류에이션 바 (대국 복기)
 │   ├── MoveList.tsx       기보 표 + MoveNavRow(이전/다음). 복기 화면은 버튼만 스크롤 밖에 고정
 │   ├── ScreenTransition.tsx  화면 진입 모핑 전환 + withScreenTransition HOC
+│   ├── CommunityNotes.tsx 수 설명 아래 💬 칸 — 유저 설명 상위 3개 + 제안 창구 + 라인 등록기 링크
 │   ├── Card.tsx, ScreenHeader.tsx
 │   ├── FenInput.tsx, AnalysisPanel.tsx, VisionImportPanel.tsx, PromotionPicker.tsx
 │   └── PieceImages.tsx    기물 이미지 매핑
@@ -144,12 +145,15 @@ src/
 │   ├── openingTree.ts                    라인들을 트리로 읽는 헬퍼 (선택 트리·자동 라인 전환)
 │   ├── openingNotes.json                 수별 설명 텍스트 + 레퍼런스 (편집 대상, 커밋됨)
 │   ├── openingNotes.ts                   위 JSON 조회 헬퍼 + Reference 타입
+│   ├── openingCommunityNotes.json        유저가 제안한 수별 설명 (승격된 것만 앱에 표시, 커밋됨)
+│   ├── openingCommunityNotes.ts          위 JSON 조회 — 승격분을 좋아요순 상위 3개로
 │   ├── openingAnnotations.generated.ts   스톡피쉬가 매긴 수별 등급·평가값 (자동 생성, 커밋됨)
 │   ├── openingAnnotations.ts             위 생성 파일 조회 + 평가값 포맷
 │   └── puzzles.ts         메이트 퍼즐 30개 (정답 유일성을 chess.js 전수 탐색으로 검증)
 ├── storage/
 │   ├── asyncStorage.ts    AsyncStorage JSON 래퍼
 │   ├── usePersistentState.ts   키 단위 공유 스토어 (아래 설명)
+│   ├── useMoveSuggestions.ts   앱에서 쓴 수 설명 제안 (보낼 때까지 기기에 보관)
 │   └── useSavedOpenings.ts, usePuzzleProgress.ts, useTrainerStats.ts,
 │       useChesscomAccount.ts, useSettings.ts
 └── api/

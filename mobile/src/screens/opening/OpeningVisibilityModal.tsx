@@ -1,14 +1,14 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { learnSides, sideLabel, type Opening } from '../../data/openings';
+import { plainSan, type Opening } from '../../data/openings';
 import { useOpeningVisibility } from '../../storage/useOpeningVisibility';
 import { colors, radius, spacing, typography } from '../../theme';
 
 /**
- * The settings sheet behind the ⚙ buttons: which openings the main list shows. Takes whichever
- * openings it should offer, so the same sheet serves the per-opening button on a card (one row) and
- * the header button (every opening) — the second one is also the only way back to a hidden opening,
- * since hiding it takes its card, and its own ⚙, off the list.
+ * The sheet behind a row's ⚙: every opening that row could show, as cards you tap to switch on and
+ * off. Cards rather than a list of names because it's the same thing the row itself shows — picking
+ * here is recognising the card you want, not reading a settings screen.
  */
 export function OpeningVisibilityModal({
   visible,
@@ -22,51 +22,55 @@ export function OpeningVisibilityModal({
   title: string;
 }) {
   const { isVisible, setVisible, showAll } = useOpeningVisibility();
-  const hiddenCount = openings.filter((opening) => !isVisible(opening.id)).length;
+  const shownCount = openings.filter((opening) => isVisible(opening.id)).length;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.card} onPress={() => {}}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.header}>
             <View style={styles.headerText}>
               <Text style={styles.title} numberOfLines={1}>{title}</Text>
-              <Text style={styles.subtitle}>켠 오프닝만 메인 화면에 보입니다</Text>
+              <Text style={styles.subtitle}>
+                켠 것만 메인 화면에 보입니다 · {shownCount}/{openings.length}개
+              </Text>
             </View>
-            {hiddenCount > 0 && (
+            {shownCount < openings.length && (
               <Pressable onPress={showAll} hitSlop={8}>
-                <Text style={styles.showAll}>모두 보이기</Text>
+                <Text style={styles.showAll}>모두 켜기</Text>
               </Pressable>
             )}
           </View>
 
-          <ScrollView>
+          <ScrollView contentContainerStyle={styles.grid}>
             {openings.map((opening) => {
-              const shown = isVisible(opening.id);
+              const on = isVisible(opening.id);
               return (
                 <Pressable
                   key={opening.id}
-                  style={styles.row}
-                  onPress={() => setVisible(opening.id, !shown)}
+                  style={({ pressed }) => [styles.card, on ? styles.cardOn : styles.cardOff, pressed && styles.cardPressed]}
+                  onPress={() => setVisible(opening.id, !on)}
                 >
-                  <View style={styles.sideDots}>
-                    {learnSides(opening).map((side) => (
-                      <View key={side} style={[styles.sideDot, side === 'b' && styles.sideDotBlack]} />
-                    ))}
+                  <View style={styles.cardTop}>
+                    <Text style={styles.eco}>{opening.eco}</Text>
+                    {opening.sideToLearn === 'both' && <Text style={styles.bothBadge}>백·흑</Text>}
+                    <View style={styles.cardTopSpacer} />
+                    <Ionicons
+                      name={on ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={20}
+                      color={on ? colors.primary : colors.border}
+                    />
                   </View>
-                  <View style={styles.rowText}>
-                    <Text style={[styles.rowName, !shown && styles.rowNameHidden]} numberOfLines={1}>
-                      {opening.name}
-                    </Text>
-                    <Text style={styles.rowMeta} numberOfLines={1}>
-                      {opening.eco} · {sideLabel(opening)} · {opening.category}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={shown}
-                    onValueChange={(next) => setVisible(opening.id, next)}
-                    trackColor={{ true: colors.primary, false: colors.border }}
-                  />
+                  <Text style={styles.name} numberOfLines={2}>{opening.name}</Text>
+                  {opening.nameEn && (
+                    <Text style={styles.nameEn} numberOfLines={1}>{opening.nameEn}</Text>
+                  )}
+                  <Text style={styles.meta} numberOfLines={1}>
+                    {opening.category} · 라인 {opening.lines.length}개
+                  </Text>
+                  <Text style={styles.preview} numberOfLines={1}>
+                    {opening.lines[0].moves.slice(0, 4).map(plainSan).join(' ')}…
+                  </Text>
                 </Pressable>
               );
             })}
@@ -87,8 +91,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
-  card: {
-    maxHeight: '75%',
+  sheet: {
+    maxHeight: '80%',
     backgroundColor: colors.background,
     borderTopLeftRadius: radius.md,
     borderTopRightRadius: radius.md,
@@ -117,43 +121,80 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
   },
-  row: {
+  grid: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingBottom: spacing.sm,
   },
-  sideDots: {
-    flexDirection: 'row',
+  card: {
+    // Two to a row on a phone, and the pair still fits with the gap between them.
+    flexBasis: '48%',
+    flexGrow: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    padding: spacing.md,
     gap: 2,
   },
-  sideDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.text,
+  cardOn: {
+    borderColor: colors.primary,
   },
-  sideDotBlack: {
-    backgroundColor: colors.text,
+  // Off cards stay readable but plainly inactive — the row won't show them.
+  cardOff: {
+    borderColor: colors.border,
+    opacity: 0.5,
   },
-  rowText: {
+  cardPressed: {
+    opacity: 0.75,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  cardTopSpacer: {
     flex: 1,
   },
-  rowName: {
+  eco: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  bothBadge: {
+    ...typography.caption,
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.textMuted,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    overflow: 'hidden',
+  },
+  name: {
     ...typography.body,
     color: colors.text,
     fontWeight: '700',
   },
-  rowNameHidden: {
-    color: colors.textMuted,
-    fontWeight: '400',
-  },
-  rowMeta: {
+  nameEn: {
     ...typography.caption,
     color: colors.textMuted,
+    fontStyle: 'italic',
+  },
+  meta: {
+    ...typography.caption,
+    color: colors.textMuted,
+  },
+  preview: {
+    ...typography.caption,
+    color: colors.text,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginTop: spacing.xs,
   },
   done: {
     marginHorizontal: spacing.lg,

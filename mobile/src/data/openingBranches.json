@@ -137,5 +137,51 @@
         "Nxc7+"
       ]
     }
+  ],
+  "authored-2": [
+    {
+      "id": "e3-6",
+      "name": "백의 대표적인 실수(4. e3)",
+      "kind": "punish",
+      "branchPly": 6,
+      "description": "",
+      "moves": [
+        "d4",
+        "d5",
+        "c4",
+        "e5",
+        "dxe5",
+        "d4",
+        "e3??",
+        "Bb4+"
+      ]
+    },
+    {
+      "id": "bd2-8",
+      "name": "비숍으로 수비",
+      "kind": "punish",
+      "branchPly": 8,
+      "description": "",
+      "moves": [
+        "d4",
+        "d5",
+        "c4",
+        "e5",
+        "dxe5",
+        "d4",
+        "e3",
+        "Bb4+",
+        "Bd2",
+        "dxe3",
+        "Bxb4",
+        "exf2+",
+        "Ke2",
+        "fxg1=N+",
+        "Ke1",
+        "Qh4+",
+        "g3",
+        "Qe4+"
+      ]
+    }
   ]
 }
