@@ -46,6 +46,23 @@ class RagServiceTest {
     }
 
     @Test
+    void explainsFromEngineOutputAloneWhenNoPrinciplesAreRetrieved() {
+        // The contract VectorStoreClient's degraded path leans on: a vector store that returns nothing
+        // (unreachable, unconfigured, or simply no match) still produces commentary from the numbers.
+        AnalysisResult result = AnalysisResult.inProgress(List.of(
+                new MoveEvaluation(1, "e2e4", 34, null, List.of("e2e4"))
+        ));
+        when(openAiClient.embed(anyString())).thenReturn(new float[] {0.1f, 0.2f});
+        when(vectorStoreClient.search(any())).thenReturn(List.of());
+        when(openAiClient.chat(anyString(), anyString())).thenReturn("엔진 수치만으로 쓴 해설이에요.");
+
+        Commentary commentary = ragService.explain(board, result);
+
+        assertThat(commentary.text()).isEqualTo("엔진 수치만으로 쓴 해설이에요.");
+        assertThat(commentary.references()).isEmpty();
+    }
+
+    @Test
     void shortCircuitsCheckmateWithoutCallingAnyClient() {
         Commentary commentary = ragService.explain(board, AnalysisResult.terminal(GameStatus.CHECKMATE));
 

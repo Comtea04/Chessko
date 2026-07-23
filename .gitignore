@@ -1,2 +1,5 @@
 # Compose-level config: CADDY_DOMAIN, BACKEND_BIND. Machine-specific — see .env.example.
 .env
+
+# Local-only compose overrides (never committed)
+docker-compose.override.yml

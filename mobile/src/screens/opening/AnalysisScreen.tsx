@@ -10,7 +10,13 @@ import { FenInput } from '../../components/FenInput';
 import { MoveList, MoveNavRow } from '../../components/MoveList';
 import { AnalysisPanel } from '../../components/AnalysisPanel';
 import { VisionImportPanel } from '../../components/VisionImportPanel';
-import { analyzePosition, AnalysisApiError, type AnalysisResponse } from '../../api/analysisApi';
+import {
+  analyzePosition,
+  explainPosition,
+  AnalysisApiError,
+  type AnalysisResponse,
+  type CommentaryResponse,
+} from '../../api/analysisApi';
 import { colors, spacing, typography } from '../../theme';
 import type { OpeningStackParamList } from '../../navigation/types';
 
@@ -25,6 +31,10 @@ export function AnalysisScreen({ route }: Props) {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null);
 
+  const [commentaryLoading, setCommentaryLoading] = useState(false);
+  const [commentaryError, setCommentaryError] = useState<string | null>(null);
+  const [commentary, setCommentary] = useState<CommentaryResponse | null>(null);
+
   const legalTargets = selectedSquare ? game.legalMoves(selectedSquare) : [];
 
   // Any position change (a move, loading a FEN, or stepping through history) invalidates
@@ -32,6 +42,8 @@ export function AnalysisScreen({ route }: Props) {
   useEffect(() => {
     setAnalysisResult(null);
     setAnalysisError(null);
+    setCommentary(null);
+    setCommentaryError(null);
   }, [game.fen]);
 
   const handleSquarePress = useCallback(
@@ -95,6 +107,22 @@ export function AnalysisScreen({ route }: Props) {
     }
   }, [game.fen]);
 
+  const handleExplain = useCallback(async () => {
+    setCommentaryLoading(true);
+    setCommentaryError(null);
+    try {
+      const result = await explainPosition(game.fen);
+      setCommentary(result);
+      // The commentary call re-runs the engine, so fill in the move list too if the user jumped
+      // straight to "AI 해설" without pressing "분석하기" first.
+      setAnalysisResult((prev) => prev ?? result);
+    } catch (err) {
+      setCommentaryError(err instanceof AnalysisApiError ? err.message : '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      setCommentaryLoading(false);
+    }
+  }, [game.fen]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -126,7 +154,16 @@ export function AnalysisScreen({ route }: Props) {
 
         <FenInput currentFen={game.fen} onLoad={game.loadFen} />
 
-        <AnalysisPanel onAnalyze={handleAnalyze} loading={analysisLoading} error={analysisError} result={analysisResult} />
+        <AnalysisPanel
+          onAnalyze={handleAnalyze}
+          loading={analysisLoading}
+          error={analysisError}
+          result={analysisResult}
+          onExplain={handleExplain}
+          commentaryLoading={commentaryLoading}
+          commentaryError={commentaryError}
+          commentary={commentary}
+        />
 
         {pendingPromotion && (
           <PromotionPicker

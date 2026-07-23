@@ -1,11 +1,16 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { AnalysisResponse } from '../api/analysisApi';
+import type { AnalysisResponse, CommentaryResponse } from '../api/analysisApi';
+import { colors, radius, spacing, typography } from '../theme';
 
 interface AnalysisPanelProps {
   onAnalyze: () => void;
   loading: boolean;
   error: string | null;
   result: AnalysisResponse | null;
+  onExplain: () => void;
+  commentaryLoading: boolean;
+  commentaryError: string | null;
+  commentary: CommentaryResponse | null;
 }
 
 function formatEval(scoreCp: number | null, mateIn: number | null): string {
@@ -25,11 +30,26 @@ const STATUS_LABEL: Record<AnalysisResponse['status'], string> = {
   STALEMATE: '스테일메이트',
 };
 
-export function AnalysisPanel({ onAnalyze, loading, error, result }: AnalysisPanelProps) {
+export function AnalysisPanel({
+  onAnalyze,
+  loading,
+  error,
+  result,
+  onExplain,
+  commentaryLoading,
+  commentaryError,
+  commentary,
+}: AnalysisPanelProps) {
+  const inProgress = result?.status === 'IN_PROGRESS';
+
   return (
     <View style={styles.container}>
       <Pressable style={styles.button} onPress={onAnalyze} disabled={loading}>
-        {loading ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>이 포지션 분석하기</Text>}
+        {loading ? (
+          <ActivityIndicator color={colors.surface} />
+        ) : (
+          <Text style={styles.buttonText}>이 포지션 분석하기</Text>
+        )}
       </Pressable>
 
       {error && <Text style={styles.error}>{error}</Text>}
@@ -52,6 +72,43 @@ export function AnalysisPanel({ onAnalyze, loading, error, result }: AnalysisPan
           )}
         </View>
       )}
+
+      {/* AI commentary is a second, opt-in step: it spends an LLM call and can be unavailable, so it
+          never rides on the engine button. Only offered once the engine says the game is live —
+          there is nothing to explain about a finished position beyond the fixed mate/stalemate text. */}
+      {inProgress && (
+        <>
+          <Pressable
+            style={[styles.button, styles.explainButton]}
+            onPress={onExplain}
+            disabled={commentaryLoading}
+          >
+            {commentaryLoading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={styles.explainButtonText}>🤖 AI 해설 {commentary ? '다시 보기' : '보기'}</Text>
+            )}
+          </Pressable>
+
+          {commentaryError && <Text style={styles.error}>{commentaryError}</Text>}
+
+          {commentary && (
+            <View style={styles.commentaryBox}>
+              <Text style={styles.commentaryText}>{commentary.commentary}</Text>
+              {commentary.references.length > 0 && (
+                <View style={styles.references}>
+                  <Text style={styles.referencesLabel}>참고한 오프닝 원칙</Text>
+                  {commentary.references.map((reference, index) => (
+                    <Text key={index} style={styles.referenceItem}>
+                      · {reference}
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+        </>
+      )}
     </View>
   );
 }
@@ -60,48 +117,87 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     maxWidth: 360,
-    gap: 8,
+    gap: spacing.sm,
   },
   button: {
-    backgroundColor: '#274b8f',
-    borderRadius: 6,
-    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
   buttonText: {
-    color: 'white',
+    color: colors.surface,
+    fontWeight: '700',
+  },
+  explainButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  explainButtonText: {
+    color: colors.primary,
     fontWeight: '700',
   },
   error: {
-    color: '#b3261e',
+    ...typography.caption,
+    color: colors.danger,
   },
   result: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 6,
-    padding: 10,
-    gap: 4,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.xs,
   },
   statusText: {
     fontWeight: '700',
-    marginBottom: 4,
+    color: colors.text,
+    marginBottom: spacing.xs,
   },
   gameOverText: {
-    color: '#555',
+    color: colors.textMuted,
   },
   lineRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   lineRank: {
-    color: '#888',
+    color: colors.textMuted,
     width: 16,
   },
   lineMove: {
     fontWeight: '600',
+    color: colors.text,
     width: 60,
   },
   lineEval: {
-    color: '#274b8f',
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  commentaryBox: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  commentaryText: {
+    ...typography.body,
+    color: colors.text,
+    lineHeight: 22,
+  },
+  references: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+    gap: 2,
+  },
+  referencesLabel: {
+    ...typography.caption,
+    color: colors.textMuted,
+    fontWeight: '700',
+  },
+  referenceItem: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
 });

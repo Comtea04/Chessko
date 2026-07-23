@@ -6,6 +6,8 @@ import com.chesstutor.exception.CommentaryUnavailableException;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -21,6 +23,8 @@ import org.springframework.web.client.RestClientException;
  */
 @Component
 public class VectorStoreClient {
+
+    private static final Logger log = LoggerFactory.getLogger(VectorStoreClient.class);
 
     private final VectorStoreProperties properties;
     private final RestClient restClient;
@@ -56,7 +60,12 @@ public class VectorStoreClient {
                     .map(match -> new OpeningPrinciple(match.content(), match.similarity()))
                     .toList();
         } catch (RestClientException e) {
-            throw new CommentaryUnavailableException("오프닝 이론 검색 중 오류가 발생했습니다.", e);
+            // Grounding is optional: the prompt builder has a "no principles" path, and the model is
+            // told to fall back to the engine numbers alone. So an unreachable or unconfigured vector
+            // store degrades the explanation rather than killing it — the LLM call still happens.
+            // (Embedding and the chat call itself are what genuinely gate commentary; those still throw.)
+            log.warn("Vector store search failed; explaining from engine output alone: {}", e.getMessage());
+            return List.of();
         }
     }
 
