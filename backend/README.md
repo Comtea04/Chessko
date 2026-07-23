@@ -29,13 +29,17 @@ cd backend
 | --- | --- | --- | --- |
 | `STOCKFISH_PATH` | **예** | `/usr/local/bin/stockfish` | Stockfish 실행 파일 경로. 잘못되면 **앱이 시작되지 않습니다** |
 | `STOCKFISH_POOL_SIZE` | 아니오 | `4` | 동시에 띄울 엔진 프로세스 수 |
-| `OPENAI_API_KEY` | 아니오 | (빈 값) | 없으면 `/commentary`만 503, 나머지는 정상 |
-| `OPENAI_CHAT_MODEL` | 아니오 | `gpt-4o-mini` | 해설 생성 모델 |
-| `OPENAI_EMBEDDING_MODEL` | 아니오 | `text-embedding-3-small` | 검색용 임베딩 모델 |
-| `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | 아니오 | (빈 값) | pgvector 검색용. 없으면 `/commentary`만 503 |
+| `OPENAI_API_KEY` | 아니오 | (빈 값) | 없으면 `/commentary`만 503, 나머지는 정상. OpenAI 호환 키(Gemini 등)면 무엇이든 가능 |
+| `OPENAI_BASE_URL` | 아니오 | `https://api.openai.com/v1` | OpenAI 호환 엔드포인트. Gemini는 `https://generativelanguage.googleapis.com/v1beta/openai` |
+| `OPENAI_CHAT_MODEL` | 아니오 | `gpt-4o-mini` | 해설 생성 모델. Gemini 예: `gemini-flash-latest` |
+| `OPENAI_EMBEDDING_MODEL` | 아니오 | `text-embedding-3-small` | 검색용 임베딩 모델. Gemini 예: `gemini-embedding-001` |
+| `OPENAI_EMBEDDING_DIMENSIONS` | 아니오 | `0` | `0`=모델 기본 차원. Gemini는 기본 3072라 pgvector `vector(1536)`에 맞추려면 `1536` |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | 아니오 | (빈 값) | pgvector 검색용. 없거나 닿지 않으면 근거 없이 엔진 수순만으로 해설 |
 | `VISION_SERVICE_URL` | 아니오 | `http://localhost:8000` | Vision 마이크로서비스 주소 |
 | `CHESSKO_CORS_ALLOWED_ORIGINS` | 아니오 | Expo 개발 서버 주소들 | 쉼표 구분 |
 | `CHESSKO_RAG_SEED_ON_STARTUP` | 아니오 | `false` | `true`일 때만 오프닝 원칙 시드 데이터를 Supabase에 적재 |
+
+> **임베딩 모델·차원을 바꾸면 벡터 스토어를 반드시 재시딩하세요.** 저장된 문서 벡터와 질의 벡터는 같은 모델·차원이라야 비교됩니다. OpenAI(1536)로 시딩한 스토어에 Gemini 질의를 던지면 유사도가 무의미합니다.
 
 ---
 

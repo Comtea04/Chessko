@@ -11,11 +11,15 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
 /**
- * One-off admin tool that embeds {@code db/opening_principles_seed.json} via OpenAI and loads it
- * into the Supabase pgvector table. Disabled by default; enable with
+ * One-off admin tool that embeds {@code db/opening_principles_seed.json} with the configured
+ * embedding model and loads it into the Supabase pgvector table. Disabled by default; enable with
  * {@code chessko.rag.seed-on-startup=true} (e.g. {@code CHESSKO_RAG_SEED_ON_STARTUP=true}), run
  * the app once, then turn it back off — it inserts rows unconditionally on every run and does
  * not check for existing data.
+ *
+ * <p>Stored and query vectors must come from the same model at the same dimension, so if the
+ * embedding model or {@code embedding-dimensions} ever changes, the table has to be re-seeded —
+ * a query embedded with one model can't be compared against documents embedded with another.
  */
 @Component
 @ConditionalOnProperty(prefix = "chessko.rag", name = "seed-on-startup", havingValue = "true")

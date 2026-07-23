@@ -36,13 +36,18 @@ public class OpenAiClient {
 
     public float[] embed(String input) {
         try {
+            Map<String, Object> body = new java.util.HashMap<>();
+            body.put("model", properties.getEmbeddingModel());
+            body.put("input", input);
+            // Only pin a size when configured — see OpenAiProperties#embeddingDimensions. Sending it
+            // to a model that doesn't offer the param would be an error, so 0 omits it entirely.
+            if (properties.getEmbeddingDimensions() > 0) {
+                body.put("dimensions", properties.getEmbeddingDimensions());
+            }
             EmbeddingResponse response = restClient.post()
                     .uri("/embeddings")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getApiKey())
-                    .body(Map.of(
-                            "model", properties.getEmbeddingModel(),
-                            "input", input
-                    ))
+                    .body(body)
                     .retrieve()
                     .body(EmbeddingResponse.class);
             if (response == null || response.data() == null || response.data().isEmpty()) {

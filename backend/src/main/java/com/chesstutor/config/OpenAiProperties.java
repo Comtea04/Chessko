@@ -14,6 +14,16 @@ public class OpenAiProperties {
     /** Embedding model used to vectorize search queries against the opening-principle store. */
     private String embeddingModel = "text-embedding-3-small";
 
+    /**
+     * Requested embedding dimensionality. 0 means "don't ask" — the model's native size. Gemini's
+     * embedding is natively 3072, which exceeds pgvector's ivfflat index limit (2000) and the
+     * store's {@code vector(1536)} column; it supports Matryoshka truncation, so setting this to
+     * 1536 makes its output drop straight into the existing schema. OpenAI's 1536-native models
+     * don't need it. The seeder and the query path both read this, so stored and query vectors
+     * always share a dimension.
+     */
+    private int embeddingDimensions = 0;
+
     /** Chat model used to generate the beginner-friendly explanation. */
     private String chatModel = "gpt-4o-mini";
 
@@ -42,6 +52,14 @@ public class OpenAiProperties {
 
     public void setEmbeddingModel(String embeddingModel) {
         this.embeddingModel = embeddingModel;
+    }
+
+    public int getEmbeddingDimensions() {
+        return embeddingDimensions;
+    }
+
+    public void setEmbeddingDimensions(int embeddingDimensions) {
+        this.embeddingDimensions = embeddingDimensions;
     }
 
     public String getChatModel() {
