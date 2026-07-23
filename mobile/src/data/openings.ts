@@ -40,10 +40,15 @@ export interface OpeningLine {
 export interface Opening {
   id: string;
   name: string;
+  /** English name, shown small on cards and matched in search. */
+  nameEn?: string;
   eco: string;
   category: OpeningCategory;
   sideToLearn: 'w' | 'b';
   description: string;
+  /** Extra search terms only — alternate spellings and nicknames people actually type
+   *  ("지우코 피아노", "QGD"). Not shown anywhere; `name`/`nameEn` cover display. */
+  aliases?: string[];
   /** Always non-empty, and the first entry is always the main line. */
   lines: OpeningLine[];
 }
@@ -52,10 +57,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'ruy-lopez',
     name: '루이 로페즈 (스페인 게임)',
+    nameEn: 'Ruy López (Spanish Game)',
     eco: 'C60',
     category: '오픈 게임',
     sideToLearn: 'w',
     description: '3.Bb5로 나이트를 공격하며 중앙을 압박하는 가장 클래식한 1.e4 오프닝.',
+    aliases: ['루이로페즈', '스페인 게임', '스패니시', 'ruy lopez', 'spanish'],
     lines: [
       {
         id: 'closed',
@@ -94,10 +101,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'italian-game',
     name: '이탈리안 게임',
+    nameEn: 'Italian Game',
     eco: 'C50',
     category: '오픈 게임',
     sideToLearn: 'w',
     description: '비숍을 c4로 빠르게 전개해 f7을 노리는 초보자에게도 친숙한 오프닝.',
+    aliases: ['이탈리안', '주오코 피아노', '주우코 피아노', '지우코 피아노', '조코 피아노', 'giuoco piano', 'italian'],
     lines: [
       {
         id: 'giuoco-piano',
@@ -179,10 +188,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'sicilian-najdorf',
     name: '시실리안 나이도르프',
+    nameEn: 'Sicilian Defense, Najdorf Variation',
     eco: 'B90',
     category: '세미 오픈 게임',
     sideToLearn: 'b',
     description: '흑이 비대칭적으로 c5로 맞서는 가장 인기 있는 시실리안 변형.',
+    aliases: ['시실리안', '나이도르프', '나즈도르프', 'sicilian', 'najdorf'],
     lines: [
       {
         id: 'english-attack',
@@ -221,10 +232,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'french-defense',
     name: '프랑스 디펜스',
+    nameEn: 'French Defense',
     eco: 'C00',
     category: '세미 오픈 게임',
     sideToLearn: 'b',
     description: 'e6로 단단하게 받고 d5로 중앙에 맞서는 견고한 방어 체계.',
+    aliases: ['프렌치', '프랑스', 'french'],
     lines: [
       {
         id: 'classical',
@@ -263,10 +276,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'queens-gambit-declined',
     name: '퀸스 갬빗 거절',
+    nameEn: 'Queen\'s Gambit Declined',
     eco: 'D30',
     category: '폐쇄 게임',
     sideToLearn: 'b',
     description: '갬빗 폰을 받지 않고 e6로 중앙 구조를 단단히 지키는 클래식 방어.',
+    aliases: ['퀸스갬빗거절', '퀸즈갬빗', 'QGD', 'queens gambit declined'],
     lines: [
       {
         id: 'orthodox',
@@ -305,10 +320,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'london-system',
     name: '런던 시스템',
+    nameEn: 'London System',
     eco: 'D02',
     category: '플랭크 오프닝',
     sideToLearn: 'w',
     description: '상대의 응수와 무관하게 같은 구조를 세울 수 있는 실전적인 시스템 오프닝.',
+    aliases: ['런던', 'london'],
     lines: [
       {
         id: 'main-setup',
@@ -347,10 +364,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'scotch-game',
     name: '스카치 게임',
+    nameEn: 'Scotch Game',
     eco: 'C45',
     category: '오픈 게임',
     sideToLearn: 'w',
     description: '3.d4로 즉시 중앙을 여는 공격적인 오픈 게임.',
+    aliases: ['스카치', 'scotch'],
     lines: [
       {
         id: 'main',
@@ -389,10 +408,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'kings-gambit',
     name: '킹스 갬빗',
+    nameEn: 'King\'s Gambit',
     eco: 'C30',
     category: '오픈 게임',
     sideToLearn: 'w',
     description: '폰을 희생해 중앙과 초반 주도권을 얻는 낭만주의 시대의 공격적 오프닝.',
+    aliases: ['킹스갬빗', '킹즈갬빗', 'kings gambit'],
     lines: [
       {
         id: 'main',
@@ -431,10 +452,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'sicilian-dragon',
     name: '시실리안 드래곤',
+    nameEn: 'Sicilian Defense, Dragon Variation',
     eco: 'B70',
     category: '세미 오픈 게임',
     sideToLearn: 'b',
     description: 'g6로 비숍을 피앙케토해 대각선을 장악하는 날카로운 시실리안 변형.',
+    aliases: ['시실리안', '드래곤', '드라곤', 'sicilian', 'dragon'],
     lines: [
       {
         id: 'main',
@@ -449,10 +472,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'caro-kann',
     name: '카로칸 디펜스',
+    nameEn: 'Caro-Kann Defense',
     eco: 'B10',
     category: '세미 오픈 게임',
     sideToLearn: 'b',
     description: 'c6로 d5를 지지하며 비숍 전개 문제를 해결하는 견실한 방어.',
+    aliases: ['카로칸', '카로칸 디펜스', 'caro kann', 'carokann'],
     lines: [
       {
         id: 'main',
@@ -499,10 +524,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'pirc-defense',
     name: '피르츠 디펜스',
+    nameEn: 'Pirc Defense',
     eco: 'B07',
     category: '세미 오픈 게임',
     sideToLearn: 'b',
     description: '중앙을 내주는 대신 피앙케토로 반격을 노리는 하이퍼모던 방어.',
+    aliases: ['피르츠', '피르크', 'pirc'],
     lines: [
       {
         id: 'main',
@@ -517,10 +544,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'scandinavian-defense',
     name: '스칸디나비안 디펜스',
+    nameEn: 'Scandinavian Defense',
     eco: 'B01',
     category: '세미 오픈 게임',
     sideToLearn: 'b',
     description: '즉시 중앙에서 폰을 교환하고 퀸을 빠르게 꺼내는 직관적인 방어.',
+    aliases: ['스칸디나비안', '스칸디', '센터 카운터', 'scandinavian', 'center counter'],
     lines: [
       {
         id: 'main',
@@ -551,10 +580,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'queens-gambit-accepted',
     name: '퀸스 갬빗 수락',
+    nameEn: 'Queen\'s Gambit Accepted',
     eco: 'D20',
     category: '폐쇄 게임',
     sideToLearn: 'b',
     description: 'c4 폰을 잡고 나중에 되찾으며 빠른 전개를 노리는 변형.',
+    aliases: ['퀸스갬빗수락', 'QGA', 'queens gambit accepted'],
     lines: [
       {
         id: 'main',
@@ -569,10 +600,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'slav-defense',
     name: '슬라브 디펜스',
+    nameEn: 'Slav Defense',
     eco: 'D10',
     category: '폐쇄 게임',
     sideToLearn: 'b',
     description: 'c6로 d5를 지지해 비숍 전개 문제 없이 중앙을 지키는 견고한 체계.',
+    aliases: ['슬라브', 'slav'],
     lines: [
       {
         id: 'main',
@@ -587,10 +620,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'kings-indian-defense',
     name: '킹스 인디언 디펜스',
+    nameEn: 'King\'s Indian Defense',
     eco: 'E60',
     category: '인디언 디펜스',
     sideToLearn: 'b',
     description: '중앙을 내주고 피앙케토 비숍과 킹사이드 공격으로 반격하는 역동적 방어.',
+    aliases: ['킹스인디언', 'KID', 'kings indian'],
     lines: [
       {
         id: 'main',
@@ -605,10 +640,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'nimzo-indian-defense',
     name: '님조 인디언 디펜스',
+    nameEn: 'Nimzo-Indian Defense',
     eco: 'E20',
     category: '인디언 디펜스',
     sideToLearn: 'b',
     description: 'Bb4로 나이트를 핀하며 상대의 폰 구조를 흔드는 전략적인 방어.',
+    aliases: ['님조인디언', '님조', 'nimzo indian', 'nimzo'],
     lines: [
       {
         id: 'main',
@@ -623,10 +660,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'grunfeld-defense',
     name: '그린펠트 디펜스',
+    nameEn: 'Grünfeld Defense',
     eco: 'D80',
     category: '인디언 디펜스',
     sideToLearn: 'b',
     description: '중앙을 내주고 d5로 즉시 반격해 상대 폰 중앙을 공격 목표로 삼는 방어.',
+    aliases: ['그륀펠트', '그린펠트', 'grunfeld', 'gruenfeld', 'grunfeld defense'],
     lines: [
       {
         id: 'main',
@@ -641,10 +680,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'queens-indian-defense',
     name: '퀸스 인디언 디펜스',
+    nameEn: 'Queen\'s Indian Defense',
     eco: 'E12',
     category: '인디언 디펜스',
     sideToLearn: 'b',
     description: 'b6로 비숍을 피앙케토해 e4 칸을 통제하는 유연한 방어.',
+    aliases: ['퀸스인디언', 'QID', 'queens indian'],
     lines: [
       {
         id: 'main',
@@ -659,10 +700,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'catalan-opening',
     name: '카탈란 오프닝',
+    nameEn: 'Catalan Opening',
     eco: 'E00',
     category: '인디언 디펜스',
     sideToLearn: 'w',
     description: 'g3로 비숍을 피앙케토해 퀸스 갬빗과 인디언 구조를 결합한 오프닝.',
+    aliases: ['카탈란', '카탈로니안', 'catalan'],
     lines: [
       {
         id: 'main',
@@ -677,10 +720,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'english-opening',
     name: '잉글리시 오프닝',
+    nameEn: 'English Opening',
     eco: 'A10',
     category: '플랭크 오프닝',
     sideToLearn: 'w',
     description: '측면에서 중앙을 통제하며 다양한 구조로 전환할 수 있는 유연한 오프닝.',
+    aliases: ['잉글리시', '잉글리쉬', 'english'],
     lines: [
       {
         id: 'main',
@@ -695,10 +740,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'owens-defense',
     name: '오웬 방어 대응',
+    nameEn: 'Owen\'s Defense',
     eco: 'A40',
     category: '폐쇄 게임',
     sideToLearn: 'w',
     description: '흑이 1...b6로 비숍을 길게 놓는 변칙 수비. 백은 e4-Bd3로 중앙을 다 차지하고 시작합니다.',
+    aliases: ['오웬', '오언', 'owen', 'owens'],
     lines: [
       {
         id: 'main',
@@ -737,10 +784,12 @@ export const OPENINGS: Opening[] = [
   {
     id: 'englund-gambit',
     name: '엥글룬드 갬빗',
+    nameEn: 'Englund Gambit',
     eco: 'A40',
     category: '폐쇄 게임',
     sideToLearn: 'b',
     description: '1.d4에 e5로 폰을 던지는 기습 갬빗. 이론적으로는 백이 좋지만, 준비 없는 상대는 함정에 걸립니다.',
+    aliases: ['엥글룬드', 'englund'],
     lines: [
       {
         id: 'main',

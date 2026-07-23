@@ -31,7 +31,14 @@ export function searchByText(query: string): OpeningMatch[] {
 
   const matches: OpeningMatch[] = [];
   for (const opening of OPENINGS) {
-    const haystacks = [opening.name, opening.eco, opening.category, ...opening.lines.map((l) => l.name)];
+    const haystacks = [
+      opening.name,
+      opening.nameEn ?? '',
+      opening.eco,
+      opening.category,
+      ...(opening.aliases ?? []),
+      ...opening.lines.map((l) => l.name),
+    ];
     if (haystacks.some((text) => normalize(text).includes(q))) {
       matches.push({ opening, line: opening.lines[0], depth: 0 });
     }

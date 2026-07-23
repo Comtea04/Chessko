@@ -86,6 +86,11 @@ function OpeningCard({ opening, saved, onPress }: { opening: Opening; saved: boo
       <Text style={styles.openingName} numberOfLines={2}>
         {opening.name}
       </Text>
+      {opening.nameEn && (
+        <Text style={styles.openingNameEn} numberOfLines={1}>
+          {opening.nameEn}
+        </Text>
+      )}
       <Text style={styles.category}>{opening.category}</Text>
       <Text style={styles.openingDesc} numberOfLines={3}>
         {opening.description}
@@ -191,6 +196,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '700',
     minHeight: 36,
+  },
+  openingNameEn: {
+    ...typography.caption,
+    color: colors.textMuted,
+    fontStyle: 'italic',
   },
   category: {
     ...typography.caption,

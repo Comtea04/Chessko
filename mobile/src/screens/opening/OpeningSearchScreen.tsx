@@ -172,6 +172,9 @@ function ResultList({
               <Text style={styles.resultSide}>{match.opening.sideToLearn === 'w' ? '백' : '흑'}</Text>
             </View>
             <Text style={styles.resultName} numberOfLines={1}>{match.opening.name}</Text>
+            {match.opening.nameEn && (
+              <Text style={styles.resultNameEn} numberOfLines={1}>{match.opening.nameEn}</Text>
+            )}
             <Text style={styles.resultMeta} numberOfLines={1}>
               {match.opening.category} · 라인 {match.opening.lines.length}개
               {showDepth && ` · ${LINE_KIND_LABEL[match.line.kind]} 라인으로 진행 중`}
@@ -315,6 +318,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text,
     fontWeight: '700',
+  },
+  resultNameEn: {
+    ...typography.caption,
+    color: colors.textMuted,
+    fontStyle: 'italic',
   },
   resultMeta: {
     ...typography.caption,
