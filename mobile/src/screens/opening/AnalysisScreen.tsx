@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { PieceSymbol, Square } from 'chess.js';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useChessGame } from '../../hooks/useChessGame';
 import { ChessBoard } from '../../components/ChessBoard';
+import { EvalBar, whitePerspectiveCp } from '../../components/EvalBar';
 import { PromotionPicker } from '../../components/PromotionPicker';
 import { FenInput } from '../../components/FenInput';
 import { MoveList, MoveNavRow } from '../../components/MoveList';
@@ -36,6 +37,20 @@ export function AnalysisScreen({ route }: Props) {
   const [commentary, setCommentary] = useState<CommentaryResponse | null>(null);
 
   const legalTargets = selectedSquare ? game.legalMoves(selectedSquare) : [];
+
+  // The bar is part of the board, not part of the result: it stays mounted from the moment the
+  // screen opens and simply reads "—" until there is an evaluation, so nothing shifts around when
+  // the analysis lands. Rank 1 is the engine's own verdict on the position.
+  const barCp = analysisResult
+    ? whitePerspectiveCp({
+        ply: 0,
+        fen: analysisResult.fen,
+        status: analysisResult.status,
+        scoreCp: analysisResult.lines[0]?.scoreCp ?? null,
+        mateIn: analysisResult.lines[0]?.mateIn ?? null,
+        analyzed: true,
+      })
+    : null;
 
   // Any position change (a move, loading a FEN, or stepping through history) invalidates
   // whatever analysis was shown for the previous position.
@@ -132,13 +147,16 @@ export function AnalysisScreen({ route }: Props) {
         {game.isStalemate && <Text style={styles.gameOverBanner}>스테일메이트! 무승부</Text>}
         {!game.isGameOver && game.isCheck && <Text style={styles.checkBanner}>체크!</Text>}
 
-        <ChessBoard
-          board={game.board}
-          selectedSquare={selectedSquare}
-          legalTargets={legalTargets}
-          lastMove={game.lastMove}
-          onSquarePress={handleSquarePress}
-        />
+        <View style={styles.boardRow}>
+          <EvalBar cp={barCp} />
+          <ChessBoard
+            board={game.board}
+            selectedSquare={selectedSquare}
+            legalTargets={legalTargets}
+            lastMove={game.lastMove}
+            onSquarePress={handleSquarePress}
+          />
+        </View>
 
         {/* Not pinned here: this screen is a workbench, not a replay, and the notation sits in the
             middle of it — controls stuck to the bottom would float far from what they move. */}
@@ -186,6 +204,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xl,
     gap: 14,
+  },
+  boardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   fenText: {
     fontSize: 10,

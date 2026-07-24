@@ -55,6 +55,42 @@ Caddy serves `https://api.yourdomain.com` → `backend:8080`. Once it's up, set 
 app's `EXPO_PUBLIC_API_BASE_URL` to that HTTPS URL. Leave `BACKEND_BIND` unset so 8080 stays on
 loopback and every request arrives through Caddy.
 
+> **Do not carry a development `BACKEND_BIND=0.0.0.0` onto the host.** Besides exposing plain
+> HTTP on 8080, it lets a caller bypass the rate limiter entirely: the limiter trusts
+> `X-Forwarded-For` (which Caddy sets), so a request arriving directly on 8080 can claim any
+> client address. If you ever must publish 8080, set
+> `CHESSKO_RATE_LIMIT_TRUST_FORWARDED_FOR=false` as well.
+
+### Oracle Cloud (Always Free, ARM)
+
+The free Ampere A1 instances run this fine — every image and wheel involved has an arm64 build.
+Two things bite that are specific to Oracle, and both look identical from outside (Caddy hangs
+on the ACME challenge and never gets a certificate):
+
+1. **VCN security list / NSG** — ingress rules for TCP 80 and 443 from `0.0.0.0/0`. Only 22 is
+   open on a fresh VCN.
+2. **Instance-level iptables** — Oracle's Ubuntu images ship a restrictive `INPUT` chain, so
+   opening the VCN is not enough:
+
+   ```bash
+   sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+   sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+   sudo netfilter-persistent save
+   ```
+
+Let's Encrypt will not issue for a bare IP, so a hostname is required — a free subdomain
+(DuckDNS and friends) is enough. Bring-up on a fresh instance:
+
+```bash
+git clone https://github.com/Comtea04/Chessko.git && cd Chessko
+# backend/.env is not in the repo — copy the 8 keys over from your dev machine
+echo "CADDY_DOMAIN=api.yourdomain.duckdns.org" > .env   # no BACKEND_BIND here
+docker compose --profile tls up -d --build
+```
+
+If the instance is small, lower `STOCKFISH_POOL_SIZE` in `backend/.env` (default 4, each taking
+a core and 64 MB of hash).
+
 ## Rate limiting
 
 The API has no accounts, so a public deployment is open to whoever finds the domain — and two

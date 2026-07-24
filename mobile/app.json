@@ -17,7 +17,10 @@
         "backgroundColor": "#0E1935",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -47,6 +50,9 @@
         "projectId": "f0f9abf5-5c34-4a4d-aa8a-6f520e608d96"
       }
     },
-    "owner": "comtea04"
+    "owner": "comtea04",
+    "updates": {
+      "url": "https://u.expo.dev/f0f9abf5-5c34-4a4d-aa8a-6f520e608d96"
+    }
   }
 }

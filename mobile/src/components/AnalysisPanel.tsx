@@ -1,3 +1,4 @@
+import { Chess } from 'chess.js';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { AnalysisResponse, CommentaryResponse } from '../api/analysisApi';
 import { colors, radius, spacing, typography } from '../theme';
@@ -22,6 +23,23 @@ function formatEval(scoreCp: number | null, mateIn: number | null): string {
     return scoreCp > 0 ? `+${pawns}` : pawns;
   }
   return '-';
+}
+
+/**
+ * Stockfish speaks UCI ("e7e5"); the rest of the app reads SAN ("e5"). Falls back to the raw
+ * UCI string if chess.js rejects the move, so an unexpected line still renders something.
+ */
+function toSan(fen: string, uci: string): string {
+  try {
+    const chess = new Chess(fen);
+    return chess.move({
+      from: uci.slice(0, 2),
+      to: uci.slice(2, 4),
+      promotion: uci.slice(4, 5) || undefined,
+    }).san;
+  } catch {
+    return uci;
+  }
 }
 
 const STATUS_LABEL: Record<AnalysisResponse['status'], string> = {
@@ -65,7 +83,7 @@ export function AnalysisPanel({
             result.lines.map((line) => (
               <View key={line.rank} style={styles.lineRow}>
                 <Text style={styles.lineRank}>{line.rank}.</Text>
-                <Text style={styles.lineMove}>{line.move}</Text>
+                <Text style={styles.lineMove}>{toSan(result.fen, line.move)}</Text>
                 <Text style={styles.lineEval}>{formatEval(line.scoreCp, line.mateIn)}</Text>
               </View>
             ))
