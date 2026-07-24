@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chessko 개인정보처리방침</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { max-width: 760px; margin: 0 auto; padding: 32px 20px 80px;
+         font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+         line-height: 1.7; color: #1c1f2e; background: #ffffff; }
+  @media (prefers-color-scheme: dark) { body { color: #e8eaf2; background: #14161d; } a { color: #7d93f5; } }
+  h1 { font-size: 1.6rem; margin-bottom: 4px; }
+  h2 { font-size: 1.15rem; margin-top: 2rem; border-top: 1px solid #d9dce6; padding-top: 1.2rem; }
+  @media (prefers-color-scheme: dark) { h2 { border-color: #2b2f3d; } }
+  .meta { color: #6c7189; font-size: .9rem; }
+  .todo { background: #fff4e0; color: #6b4b12; padding: 2px 6px; border-radius: 4px; font-size: .85em; }
+  @media (prefers-color-scheme: dark) { .todo { background: #3a2f18; color: #e6cf9b; } }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: .95rem; }
+  th, td { border: 1px solid #d9dce6; padding: 8px 10px; text-align: left; vertical-align: top; }
+  @media (prefers-color-scheme: dark) { th, td { border-color: #2b2f3d; } }
+  th { background: #f2f4fa; }
+  @media (prefers-color-scheme: dark) { th { background: #1e212b; } }
+  code { background: #eef1fb; padding: 1px 5px; border-radius: 4px; }
+  @media (prefers-color-scheme: dark) { code { background: #232838; } }
+</style>
+</head>
+<body>
+
+<h1>Chessko 개인정보처리방침</h1>
+<p class="meta">시행일: 2026년 7월 24일 · 최종 수정일: 2026년 7월 24일</p>
+
+<p>
+  Chessko(이하 "앱")는 체스 오프닝 학습·연습과 포지션 분석을 제공하는 애플리케이션입니다.
+  본 방침은 앱이 어떤 정보를 어떻게 다루는지 설명합니다. 앱은 <strong>회원가입·로그인이 없으며</strong>,
+  학습 기록은 원칙적으로 <strong>이용자의 기기 안에만</strong> 저장됩니다.
+</p>
+
+<h2>1. 수집·처리하는 정보와 목적</h2>
+<table>
+  <tr><th>항목</th><th>처리 방식</th><th>목적</th></tr>
+  <tr>
+    <td>체스판 스크린샷(이용자가 앨범에서 직접 선택한 이미지)</td>
+    <td>분석 서버로 전송되어 판을 인식한 뒤 즉시 폐기됩니다. 서버에 원본 이미지를 저장하지 않습니다.
+        (테마 등록 기능 사용 시에는 원본이 아닌 <em>기물 모양 템플릿</em>만 서버에 저장됩니다.)</td>
+    <td>스크린샷 → 체스 포지션(FEN) 변환</td>
+  </tr>
+  <tr>
+    <td>chess.com 닉네임</td>
+    <td>이용자가 입력하며 <strong>기기에만</strong> 저장됩니다. 조회 시 chess.com 공개 API로 전송됩니다.</td>
+    <td>최근 대국 불러오기·복기</td>
+  </tr>
+  <tr>
+    <td>체스 포지션 정보(FEN, 수순)</td>
+    <td>분석 요청 시 분석 서버로 전송됩니다. 개인을 식별하는 정보가 아닙니다.</td>
+    <td>엔진 분석 및 AI 해설 생성</td>
+  </tr>
+  <tr>
+    <td>학습·연습 데이터(저장한 오프닝, 퍼즐 진행도, 연습 기록, 이용자가 작성한 수 설명 제안 등)</td>
+    <td>전적으로 이용자 기기의 로컬 저장소(AsyncStorage)에 저장되며 서버로 전송되지 않습니다.
+        작성한 제안을 외부로 보내는 것은 이용자가 공유 기능으로 직접 실행할 때만 이루어집니다.</td>
+    <td>학습 진행 상태 유지</td>
+  </tr>
+</table>
+
+<h2>2. 수집하지 않는 정보</h2>
+<p>
+  앱은 이름, 생년월일, 전화번호, 이메일, 정확한 위치정보, 연락처, 광고식별자를 수집하지 않습니다.
+  앱에는 광고, 사용자 행동 분석(analytics), 크래시 수집 SDK가 포함되어 있지 않습니다.
+</p>
+
+<h2>3. 기기 권한</h2>
+<p>
+  <strong>사진 보관함 접근</strong> — 체스판 스크린샷을 이용자가 직접 선택해 인식하기 위한 용도로만 사용합니다.
+  선택한 이미지 외의 사진에는 접근하지 않습니다. <strong>카메라·마이크 권한은 사용하지 않습니다.</strong>
+</p>
+
+<h2>4. 제3자 서비스</h2>
+<p>다음 외부 서비스가 위 목적 범위에서 이용됩니다.</p>
+<ul>
+  <li><strong>Chessko 분석 서버(자체 운영)</strong> — 엔진 분석, 스크린샷 인식.</li>
+  <li><strong>OpenAI</strong> — AI 해설 생성 시 체스 포지션 정보가 전송됩니다. (해설 기능을 사용할 때만)</li>
+  <li><strong>Supabase</strong> — 오프닝 원칙 텍스트 검색(벡터 데이터베이스).</li>
+  <li><strong>chess.com 공개 API</strong> — 이용자가 입력한 닉네임의 공개 대국 정보 조회.</li>
+</ul>
+
+<h2>5. 보관 및 파기</h2>
+<ul>
+  <li>기기에 저장된 데이터는 앱을 삭제하면 함께 삭제됩니다.</li>
+  <li>분석 서버로 전송된 스크린샷은 인식 처리 후 보관하지 않습니다.</li>
+  <li>테마 등록으로 생성된 기물 템플릿은 원본 스크린샷이 아니며, 개인을 식별하지 않습니다.
+      <span class="todo">확인 필요: 보관 기간/삭제 정책을 확정해 명시</span></li>
+</ul>
+
+<h2>6. 이용자의 권리</h2>
+<p>
+  학습 데이터는 기기에 있으므로 앱 내 삭제 기능 또는 앱 삭제로 언제든 지울 수 있습니다.
+  기타 문의는 아래 연락처로 요청할 수 있습니다.
+</p>
+
+<h2>7. 만 14세 미만 아동</h2>
+<p>
+  앱은 계정을 만들지 않으며 아동의 개인정보를 별도로 수집하지 않습니다.
+</p>
+
+<h2>8. 방침 변경</h2>
+<p>
+  본 방침이 변경되는 경우 본 페이지를 통해 시행일과 함께 공지합니다.
+</p>
+
+<h2>9. 문의처</h2>
+<p>
+  운영자: <span class="todo">[개발자/운영자 이름 입력]</span><br />
+  이메일: <span class="todo">[문의 이메일 입력]</span>
+</p>
+
+</body>
+</html>

@@ -7,11 +7,13 @@ import { suggestionText, useMoveSuggestions } from '../storage/useMoveSuggestion
 import { colors, radius, spacing, typography } from '../theme';
 
 /**
- * Where a suggestion is turned into a published explanation: the authoring tool's line editor
- * (`npm run author`). It runs on the developer's machine, so the address is overridable — pointing
- * `EXPO_PUBLIC_AUTHOR_URL` at a LAN IP is what makes the link work from a phone.
+ * Where a suggestion is turned into a published explanation. Unset in a released build — there is no
+ * public contribution site yet, so the link would only ever point at a dev machine's `localhost`,
+ * which is nothing on a user's phone. So it stays hidden unless `EXPO_PUBLIC_AUTHOR_URL` is set
+ * (the local authoring tool during development, a real site once one exists). Absent, the button is
+ * simply not shown — the suggestion still saves and shares, it just has nowhere to link out to.
  */
-const AUTHOR_URL = process.env.EXPO_PUBLIC_AUTHOR_URL ?? 'http://localhost:4599';
+const AUTHOR_URL = process.env.EXPO_PUBLIC_AUTHOR_URL;
 
 const MAX_TEXT = 400;
 
@@ -125,9 +127,11 @@ export function CommunityNotes({
             >
               <Text style={styles.buttonTextPrimary}>제안 등록</Text>
             </Pressable>
-            <Pressable style={styles.button} onPress={() => Linking.openURL(AUTHOR_URL)}>
-              <Text style={styles.buttonText}>라인 등록기 열기 ↗</Text>
-            </Pressable>
+            {AUTHOR_URL && (
+              <Pressable style={styles.button} onPress={() => Linking.openURL(AUTHOR_URL)}>
+                <Text style={styles.buttonText}>라인 등록기 열기 ↗</Text>
+              </Pressable>
+            )}
           </View>
           {/* Said plainly, because the round trip is manual: the suggestion sits on this device until
               it is shared out and promoted in the authoring tool. */}
