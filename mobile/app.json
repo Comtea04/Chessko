@@ -33,6 +33,12 @@
           "microphonePermission": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f0f9abf5-5c34-4a4d-aa8a-6f520e608d96"
+      }
+    },
+    "owner": "comtea04"
   }
 }
